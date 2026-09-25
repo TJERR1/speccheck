@@ -5,46 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SpecCheck: catch weak requirements before review</title>
   <meta name="description" content="SpecCheck reads your draft tender requirements and flags vague, untestable, vendor-locking, conflicting and compound clauses, with a suggested rewrite for each.">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="brand/icon.svg" type="image/svg+xml">
   <meta property="og:title" content="SpecCheck">
   <meta property="og:description" content="Catch weak requirement wording before your spec goes to review.">
   <meta property="og:image" content="assets/screenshot.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --paper: #f5f3ee;
-      --sheet: #fffdf8;
-      --ink: #161b24;
-      --ink-2: #4a5261;
-      --rule: #e2ded4;
-      --rule-strong: #cfc9bb;
-      --primary: #1f5eff;
+      --paper: #f7f8fa;
+      --sheet: #ffffff;
+      --ink: #16203a;
+      --ink-2: #5a6478;
+      --rule: #d9dde5;
+      --rule-strong: #c3cad6;
+      --primary: #16203a;
       --primary-ink: #ffffff;
-      --primary-hover: #1848c7;
+      --primary-hover: #2a3656;
+      --redline: #d23b3f;
       --vague: #8a5a00;      --vague-bg: #fbe7b8;
       --untestable: #a3321a; --untestable-bg: #fbd5c9;
       --vendor: #6a3fb5;     --vendor-bg: #e3d7fa;
       --conflict: #b0184f;   --conflict-bg: #f8d0df;
       --compound: #0b6782;   --compound-bg: #cdebf4;
       --clean: #1d7a45;
-      --serif: "Newsreader", Georgia, "Times New Roman", serif;
+      --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
       --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
       --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
       color-scheme: light;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --paper: #11141a;
-        --sheet: #181c24;
-        --ink: #eceae4;
-        --ink-2: #a3a9b5;
-        --rule: #2a303b;
-        --rule-strong: #3a4250;
-        --primary: #5b8cff;
-        --primary-ink: #0b1020;
-        --primary-hover: #82a6ff;
+        --paper: #10151f;
+        --sheet: #171e2b;
+        --ink: #e7eaf0;
+        --ink-2: #9aa4b5;
+        --rule: #2b3445;
+        --rule-strong: #3a4458;
+        --primary: #e7eaf0;
+        --primary-ink: #10151f;
+        --primary-hover: #c3cad6;
+        --redline: #ff6b5e;
         --vague: #f3c969;      --vague-bg: #463812;
         --untestable: #ff9f87; --untestable-bg: #4a221a;
         --vendor: #c3a6ff;     --vendor-bg: #33274a;
@@ -78,7 +80,7 @@
     }
     .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.05rem; text-decoration: none; }
-    .brand img { width: 28px; height: 28px; }
+    .brand img { height: 32px; width: auto; }
     .nav-links { display: flex; align-items: center; gap: 24px; font-size: 0.92rem; }
     .nav-links a:not(.btn) { text-decoration: none; color: var(--ink-2); }
     .nav-links a:not(.btn):hover { color: var(--ink); }
@@ -94,7 +96,7 @@
     .btn:hover { border-color: var(--ink-2); }
     .btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
     .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
-    .btn:focus-visible, a:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+    .btn:focus-visible, a:focus-visible { outline: 2px solid var(--redline); outline-offset: 2px; }
     .nav .btn { padding: 7px 14px; font-size: 0.88rem; }
 
     /* ---------- hero ---------- */
@@ -105,9 +107,14 @@
       font: 500 0.78rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
       color: var(--ink-2); margin: 0 0 18px;
     }
-    h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.015em; line-height: 1.1; margin: 0; }
-    h1 { font-size: clamp(2.5rem, 6vw, 4.1rem); }
-    h1 em, h2 em { font-style: italic; color: var(--primary); }
+    h1, h2, h3 { font-family: var(--sans); font-weight: 500; letter-spacing: -0.025em; line-height: 1.12; margin: 0; }
+    h1 { font-size: clamp(2.4rem, 5.6vw, 3.8rem); font-weight: 600; letter-spacing: -0.035em; }
+    h1 em, h2 em {
+      font-style: normal;
+      text-decoration: underline wavy var(--redline);
+      text-decoration-thickness: 0.06em; text-underline-offset: 0.16em;
+      text-decoration-skip-ink: none;
+    }
     .lede { font-size: 1.15rem; color: var(--ink-2); margin: 22px 0 32px; max-width: 34em; }
     .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
 
@@ -130,7 +137,7 @@
       font: 500 0.75rem var(--mono); color: var(--ink-2); letter-spacing: 0.04em;
       border-bottom: 1px solid var(--rule); padding-bottom: 12px; margin-bottom: 8px;
     }
-    .sheet-head .count { color: var(--untestable); }
+    .sheet-head .count { color: var(--redline); }
     .clauses { list-style: none; margin: 0; padding: 0; }
     .clause {
       display: grid; grid-template-columns: 2.2em 1fr; gap: 4px 8px;
@@ -146,12 +153,14 @@
     }
 
     mark {
-      color: inherit; padding: 0 2px; border-radius: 2px;
-      background: linear-gradient(var(--hl), var(--hl)) no-repeat 0 100% / 0% 100%;
-      animation: mark-in .6s cubic-bezier(.3,.7,.2,1) forwards;
+      color: inherit; background: none;
+      text-decoration: underline wavy transparent;
+      text-decoration-thickness: 1.5px; text-underline-offset: 4px;
+      text-decoration-skip-ink: none;
+      animation: mark-in .5s ease-out forwards;
       animation-delay: var(--d, 0s);
     }
-    @keyframes mark-in { to { background-size: 100% 100%; } }
+    @keyframes mark-in { to { text-decoration-color: var(--redline); } }
     .tag {
       display: inline-block; white-space: nowrap;
       font: 600 0.72rem/1 var(--sans); letter-spacing: 0.01em;
@@ -173,14 +182,14 @@
       grid-column: 2 / -1;
       margin-top: 6px; padding: 10px 12px;
       border-left: 3px solid var(--primary);
-      background: color-mix(in srgb, var(--primary) 7%, transparent);
+      background: color-mix(in srgb, var(--primary) 5%, transparent);
       font: 0.9rem/1.5 var(--sans); color: var(--ink);
       opacity: 0; animation: tag-in .4s ease-out 1.9s forwards;
     }
-    .rewrite b { font: 500 0.7rem var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); display: block; margin-bottom: 2px; }
+    .rewrite b { font: 500 0.7rem var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); display: block; margin-bottom: 2px; }
 
     @media (prefers-reduced-motion: reduce) {
-      mark { animation: none; background-size: 100% 100%; }
+      mark { animation: none; text-decoration-color: var(--redline); }
       .tag, .rewrite { animation: none; opacity: 1; transform: none; }
       html { scroll-behavior: auto; }
     }
@@ -220,7 +229,7 @@
     .flag-card .before { font-family: var(--serif); font-size: 1.08rem; color: var(--ink); line-height: 1.45; }
     .flag-card .before::before { content: "\201C"; } .flag-card .before::after { content: "\201D"; }
     .flag-card .why { font-size: 0.93rem; }
-    .flag-card.intro { border-top-color: var(--primary); background: transparent; border-style: dashed; justify-content: center; }
+    .flag-card.intro { border-top-color: var(--rule-strong); background: transparent; border-style: dashed; justify-content: center; }
 
     /* how it works */
     .steps { list-style: none; padding: 0; margin: 32px 0 0; display: grid; gap: 20px; counter-reset: s; }
@@ -237,15 +246,15 @@
       border: 1px solid var(--rule); border-radius: 10px; overflow: hidden;
       background: var(--sheet);
       box-shadow: 0 24px 48px -28px rgb(20 24 32 / 0.35);
-      max-height: 640px;
     }
+    .shot img { width: 100%; height: 620px; object-fit: cover; object-position: 50% 63%; }
     .shot figcaption { font-size: 0.85rem; color: var(--ink-2); padding: 10px 14px; border-top: 1px solid var(--rule); }
 
     /* evidence */
     .stats { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; margin: 40px 0 32px; }
     @media (min-width: 720px) { .stats { grid-template-columns: repeat(3, 1fr); } }
     .stat { background: var(--sheet); padding: 24px; }
-    .stat .big { font: 400 clamp(2.6rem, 5vw, 3.6rem)/1 var(--serif); letter-spacing: -0.02em; }
+    .stat .big { font: 500 clamp(2.4rem, 4.6vw, 3.3rem)/1 var(--sans); letter-spacing: -0.035em; }
     .stat .big small { font-size: 0.5em; color: var(--ink-2); }
     .stat .lbl { font-weight: 600; margin-top: 10px; }
     .stat .sub { color: var(--ink-2); font-size: 0.92rem; margin-top: 2px; }
@@ -278,7 +287,7 @@
     .person small { display: block; color: var(--ink-2); font-size: 0.85rem; }
 
     .final { text-align: center; }
-    .final img { width: 64px; height: 64px; margin: 0 auto 24px; }
+    .final .mark-icon { width: 72px; height: 72px; margin: 0 auto 24px; }
     .final h2 { margin: 0 auto; }
     .final .cta-row { justify-content: center; margin-top: 28px; }
     .final .note { color: var(--ink-2); font-size: 0.9rem; max-width: 34em; margin: 20px auto 0; }
@@ -290,7 +299,7 @@
 <body>
   <nav class="nav" aria-label="Main">
     <div class="wrap">
-      <a class="brand" href="#top"><img src="icon.svg" alt="" width="28" height="28">SpecCheck</a>
+      <a class="brand" href="#top"><picture><source srcset="brand/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="brand/logo.svg" alt="SpecCheck" width="150" height="32"></picture></a>
       <div class="nav-links">
         <a href="#problem">Problem</a>
         <a href="#flags">What it checks</a>
@@ -396,7 +405,7 @@
         <p class="prose" style="font-size:.95rem;margin-top:28px">Nothing is stored: no database, no browser storage, and pasted text is never logged. Don't paste classified or sensitive material, because text is sent to the model provider for checking.</p>
       </div>
       <figure class="shot" style="margin:0">
-        <img src="assets/screenshot.png" alt="SpecCheck results: eight clauses, six flagged, with an expanded row showing the reason and a suggested rewrite." loading="lazy" width="932" height="1868">
+        <img src="assets/screenshot.png" alt="SpecCheck results: eight clauses, six flagged, with an expanded row showing the reason and a suggested rewrite." loading="lazy" width="917" height="1908">
         <figcaption>The working app: 8 clauses, 6 flagged, 2 clean.</figcaption>
       </figure>
     </div>
@@ -448,7 +457,7 @@
 
   <section class="final">
     <div class="wrap">
-      <img src="icon.svg" alt="SpecCheck icon">
+      <img class="mark-icon" src="brand/icon.svg" alt="SpecCheck icon" width="72" height="72">
       <h2>Your next spec, <em>checked</em> before review.</h2>
       <div class="cta-row">
         <a class="btn btn-primary" href="/">Open SpecCheck →</a>
@@ -460,7 +469,7 @@
 
   <footer>
     <div class="wrap">
-      <span>SpecCheck · Project 5 submission</span>
+      <span>Spec<b>Check</b> · Project 5 submission</span>
       <span>Don't paste classified, restricted or sensitive information.</span>
     </div>
   </footer>
