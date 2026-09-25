@@ -14,6 +14,10 @@ Each flagged clause comes with a plain-English reason and a suggested rewrite. Y
 
 Do not paste classified, restricted or sensitive information. Pasted text is sent to the LLM provider for checking. SpecCheck itself stores nothing: no database, no browser storage, and the Worker never logs the pasted text.
 
+## Landing page
+
+`public/landing.html` is the public landing page (served at `/landing`): problem statement, target user, outcome metric, riskiest assumption and eval evidence. It uses the brand icon and logos in `public/brand/`, and the product screenshot in `public/assets/`.
+
 ## Architecture
 
 SpecCheck runs as a single Cloudflare Worker. The page in `public/` is served as static assets, and `POST /api/check` is handled by `src/index.js`:
