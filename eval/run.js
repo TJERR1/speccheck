@@ -1,7 +1,9 @@
-// Compare the candidate prompts on the labelled dataset.
+// Compare the candidate prompts on the labelled dataset, or run the hybrid checker.
 //
 //   npm run eval                     # all prompts, 3 runs each
 //   npm run eval -- --runs 1 --prompts strict --model deepseek-v4-flash
+//   npm run eval -- --mode hybrid --runs 3          # Jev + LLM (src/hybrid.js)
+//   npm run eval -- --sweep eval/results/<file>.json   # tune Jev thresholds offline
 //
 // Each run checks all 40 clauses as one document, the same way the app does.
 // Scores are clause-level (flagged vs clean) and per tag. Tags listed in an
@@ -11,45 +13,164 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkClauses } from "../src/checker.js";
+import { checkClausesHybrid, JEV_QUESTIONS, THRESHOLDS } from "../src/hybrid.js";
+import { listModels, JEV_BASE_URL } from "../src/jev.js";
 import { PROMPTS, TAGS } from "../src/prompts.js";
 import { LLM_MODEL } from "../src/llm.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs(process.argv.slice(2));
 const runs = Number(args.runs ?? 3);
+const mode = args.mode ?? "llm";
 const promptNames = args.prompts ? args.prompts.split(",") : Object.keys(PROMPTS);
 const model = args.model ?? LLM_MODEL;
+const jevModel = args["jev-model"] ?? "jev-1.13.0";
+const TARGET = { recall: 0.8, precision: 0.7 };
 
-const apiKey = readApiKey();
 const { items } = JSON.parse(fs.readFileSync(path.join(here, "dataset.json"), "utf8"));
 const clauses = items.map((it) => ({ id: it.id, label: "", text: it.text }));
 
-const summaries = [];
-for (const name of promptNames) {
+if (args.sweep) {
+  sweep(JSON.parse(fs.readFileSync(args.sweep, "utf8")));
+} else if (mode === "hybrid") {
+  await runHybrid();
+} else {
+  await runPrompts();
+}
+
+async function runPrompts() {
+  const apiKey = readKey("OPENCODE_API_KEY");
+  const summaries = [];
+  for (const name of promptNames) {
+    const runResults = [];
+    for (let r = 1; r <= runs; r++) {
+      process.stdout.write(`${name} run ${r}/${runs}… `);
+      const started = Date.now();
+      try {
+        const results = await checkClauses(clauses, apiKey, { prompt: name, model, timeoutMs: 300_000, suppressedTags: [] });
+        const seconds = (Date.now() - started) / 1000;
+        console.log(`${seconds.toFixed(1)}s`);
+        runResults.push({ seconds, results });
+      } catch (err) {
+        console.log(`failed: ${err.message.slice(0, 120)}`);
+      }
+    }
+    if (runResults.length) summaries.push({ name, ...summarise(runResults) });
+  }
+  const outFile = writeResults(`${model}`, { model, runs, summaries });
+  printReport(summaries);
+  console.log(`\nFull results: ${path.relative(process.cwd(), outFile)}`);
+}
+
+async function runHybrid() {
+  const keys = { opencode: readKey("OPENCODE_API_KEY"), jev: readKey("JEV_AI_API_KEY") };
+  const baseUrl = process.env.JEV_AI_BASE_URL || readEnvFile("JEV_AI_BASE_URL") || JEV_BASE_URL;
+  const jevModels = await listModels(keys.jev, { baseUrl });
+  console.log(`Jev models on this key: ${jevModels.join(", ")} · using ${jevModel}`);
+
   const runResults = [];
+  const probabilities = [];
   for (let r = 1; r <= runs; r++) {
-    process.stdout.write(`${name} run ${r}/${runs}… `);
+    process.stdout.write(`hybrid run ${r}/${runs}… `);
+    const timings = {};
     const started = Date.now();
     try {
-      const results = await checkClauses(clauses, apiKey, { prompt: name, model, timeoutMs: 300_000, suppressedTags: [] });
+      const results = await checkClausesHybrid(clauses, keys, {
+        withProbabilities: true,
+        timings,
+        jevOptions: { baseUrl, model: jevModel },
+        llmOptions: { model, timeoutMs: 300_000 },
+      });
       const seconds = (Date.now() - started) / 1000;
-      console.log(`${seconds.toFixed(1)}s`);
-      runResults.push({ seconds, results });
+      console.log(`${seconds.toFixed(1)}s (jev ${timings.jev}s, conflict ${timings.conflict}s, rewrites ${timings.rewrites}s)`);
+      runResults.push({ seconds, timings, results });
+      probabilities.push(results.map((r) => ({ id: r.id, jev: r.jev, conflicting: r.flags.some((f) => f.tag === "Conflicting") })));
     } catch (err) {
       console.log(`failed: ${err.message.slice(0, 120)}`);
     }
   }
-  if (runResults.length) summaries.push({ name, ...summarise(runResults) });
+  const summaries = runResults.length
+    ? [{ name: "hybrid", ...summarise(runResults), timings: meanTimings(runResults) }]
+    : [];
+  const outFile = writeResults(`hybrid-${model}`, { mode: "hybrid", model, jevModel, jevModels, thresholds: THRESHOLDS, runs, summaries, probabilities });
+  printReport(summaries);
+  if (summaries[0]) {
+    const t = summaries[0].timings;
+    console.log(`\nAverage step times: jev ${t.jev.toFixed(1)}s · conflict ${t.conflict.toFixed(1)}s · rewrites ${t.rewrites.toFixed(1)}s`);
+  }
+  console.log(`\nFull results: ${path.relative(process.cwd(), outFile)}`);
 }
 
-const outDir = path.join(here, "results");
-fs.mkdirSync(outDir, { recursive: true });
-const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-const outFile = path.join(outDir, `${stamp}-${model}.json`);
-fs.writeFileSync(outFile, JSON.stringify({ model, runs, summaries }, null, 2));
+/**
+ * For each Jev tag, pick the threshold with the highest recall whose precision is at least the target.
+ * Ties go to the higher threshold, which flags less. All runs in the file are pooled.
+ */
+function sweep(file) {
+  if (!Array.isArray(file.probabilities) || file.probabilities.length === 0) {
+    console.error("That file has no Jev probabilities. Run `npm run eval -- --mode hybrid` first.");
+    process.exit(1);
+  }
+  const itemsById = new Map(items.map((it) => [it.id, it]));
+  const rows = file.probabilities.flat();
+  const candidates = Array.from({ length: 19 }, (_, i) => Math.round((0.05 + i * 0.05) * 100) / 100);
+  const chosen = {};
 
-printReport(summaries);
-console.log(`\nFull results: ${path.relative(process.cwd(), outFile)}`);
+  console.log(`Sweeping ${rows.length} clause results from ${file.probabilities.length} run(s)\n`);
+  console.log("tag              threshold  precision  recall");
+  for (const { tag } of JEV_QUESTIONS) {
+    let best = null;
+    for (const t of candidates) {
+      let tp = 0, fp = 0, fn = 0;
+      for (const row of rows) {
+        const item = itemsById.get(row.id);
+        const want = item.tags.includes(tag);
+        const got = row.jev[tag] >= t;
+        const allowed = want || (item.also_ok ?? []).includes(tag);
+        if (want && got) tp++;
+        else if (want && !got) fn++;
+        else if (!allowed && got) fp++;
+      }
+      const precision = tp + fp === 0 ? 1 : tp / (tp + fp);
+      const recall = tp + fn === 0 ? 1 : tp / (tp + fn);
+      if (precision >= TARGET.precision && (!best || recall >= best.recall)) best = { t, precision, recall };
+    }
+    chosen[tag] = best?.t ?? null;
+    const pct = (x) => `${Math.round(x * 100)}%`;
+    console.log(`${tag.padEnd(16)} ${best ? String(best.t).padEnd(10) : "none      "} ${best ? pct(best.precision).padEnd(10) : "-         "} ${best ? pct(best.recall) : "-"}`);
+  }
+
+  // Clause-level score with the chosen thresholds plus the recorded conflict flags, per run.
+  const perRun = file.probabilities.map((run) =>
+    score(
+      run.map((row) => ({
+        id: row.id,
+        flags: [
+          ...JEV_QUESTIONS.filter(({ tag }) => chosen[tag] !== null && row.jev[tag] >= chosen[tag]).map(({ tag }) => ({ tag })),
+          ...(row.conflicting ? [{ tag: "Conflicting" }] : []),
+        ],
+      })),
+    ),
+  );
+  const mean = (f) => perRun.reduce((s, r) => s + f(r), 0) / perRun.length;
+  console.log(`\nWith these thresholds: clause recall ${Math.round(mean((r) => r.recall) * 100)}%, precision ${Math.round(mean((r) => r.precision) * 100)}% (target: recall ≥ 80%, precision ≥ 70%)`);
+  const failing = JEV_QUESTIONS.filter(({ tag }) => chosen[tag] === null).map((q) => q.tag);
+  if (failing.length) console.log(`No threshold reaches ${TARGET.precision * 100}% precision for: ${failing.join(", ")}`);
+  console.log(`\nTHRESHOLDS = ${JSON.stringify(chosen)}`);
+}
+
+function meanTimings(runResults) {
+  const mean = (k) => runResults.reduce((s, r) => s + r.timings[k], 0) / runResults.length;
+  return { jev: mean("jev"), conflict: mean("conflict"), rewrites: mean("rewrites") };
+}
+
+function writeResults(name, data) {
+  const outDir = path.join(here, "results");
+  fs.mkdirSync(outDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const outFile = path.join(outDir, `${stamp}-${name}.json`);
+  fs.writeFileSync(outFile, JSON.stringify(data, null, 2));
+  return outFile;
+}
 
 function summarise(runResults) {
   const perRun = runResults.map(({ seconds, results }) => ({ seconds, ...score(results) }));
@@ -115,7 +236,7 @@ function score(results) {
 
 function printReport(summaries) {
   const pct = (x) => `${Math.round(x * 100)}%`.padStart(5);
-  console.log(`\nModel: ${model} · runs per prompt: ${runs} · target: recall ≥ 80%, precision ≥ 70%\n`);
+  console.log(`\nModel: ${model}${mode === "hybrid" ? ` + ${jevModel}` : ""} · runs: ${runs} · target: recall ≥ 80%, precision ≥ 70%\n`);
   console.log("prompt     recall  precision  false alarms  avg time");
   for (const s of summaries) {
     console.log(`${s.name.padEnd(10)} ${pct(s.recall)}   ${pct(s.precision)}      ${s.falseAlarms.toFixed(1).padStart(4)}        ${s.seconds.toFixed(1)}s`);
@@ -134,15 +255,19 @@ function printReport(summaries) {
   }
 }
 
-function readApiKey() {
-  if (process.env.OPENCODE_API_KEY) return process.env.OPENCODE_API_KEY;
-  const envFile = path.join(here, "..", ".env");
-  const match = fs.existsSync(envFile) && fs.readFileSync(envFile, "utf8").match(/^OPENCODE_API_KEY=(.*)$/m);
-  if (!match || !match[1].trim()) {
-    console.error("Set OPENCODE_API_KEY in .env first.");
+function readKey(name) {
+  const value = process.env[name] || readEnvFile(name);
+  if (!value) {
+    console.error(`Set ${name} in .env first.`);
     process.exit(1);
   }
-  return match[1].trim();
+  return value;
+}
+
+function readEnvFile(name) {
+  const envFile = path.join(here, "..", ".env");
+  const match = fs.existsSync(envFile) && fs.readFileSync(envFile, "utf8").match(new RegExp(`^${name}=(.*)$`, "m"));
+  return match ? match[1].trim() : "";
 }
 
 function parseArgs(argv) {
