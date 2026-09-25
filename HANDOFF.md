@@ -97,7 +97,7 @@ Paste a deliberately bad spec live, watch it light up, then accept rewrites one 
 
 ## Submission checklist
 
-- [ ] Public landing page: app name, team, problem statement, target user, outcome metric, riskiest assumption, evidence — _partial: everything is in except real team names, which are still placeholders ("Team member 1/2") in `public/landing.html`_
+- [x] Public landing page: app name, team, problem statement, target user, outcome metric, riskiest assumption, evidence — _`public/landing.html`; team is Jerry and Chee Howe_
 - [x] Working app: deployed link, or a screenshot if it runs locally — _runs locally (`npm run dev`, port 8788); screenshot committed at `public/assets/screenshot.png`_
 - [x] Source repo with a short README on how to run it. **Check that no API keys or secrets are committed** (use `.env`, gitignored) — _`README.md` covers setup, tests and eval; checked git history: only `.env.example` is tracked, no keys; `.env` and `*-key.txt` are gitignored_
 - [x] Extra-knowledge build: link, what it enabled, evidence it worked, one limitation or failed attempt — _eval write-up in `eval/RESULTS.md` and the landing page's Evidence section: it picked the shipped prompt and model; the failed first attempt was the 60s timeout_
