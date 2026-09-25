@@ -44,7 +44,8 @@ async function handleCheck(request, env) {
     if (err instanceof UserError) return json({ error: err.message }, 400);
     // Log the failure type only, never the pasted text or a key.
     if (err instanceof JevError) console.error("check failed: JevError", err.status, err.code);
-    else console.error("check failed:", err.name, err.message.slice(0, 200));
+    // LLM error messages can quote the prompt or reply (upstream bodies, JSON.parse snippets).
+    else console.error("check failed:", err.name, err.status ?? "");
     const timedOut = err.name === "TimeoutError" || err.code === "timeout";
     return json(
       { error: timedOut ? "The check took too long. Try a shorter section." : "The checker is unavailable right now. Try again in a moment." },

@@ -1590,6 +1590,14 @@ If the criteria were **not** met, set `CHECK_MODE = "llm"` in `src/checker.js`, 
 
 Run `npm run dev`, open http://localhost:8788/app, paste 5–8 clauses from `eval/dataset.json` (including #6 and #31), and click **Check Requirements**. Check that flags, explanations and rewrites appear, and that both #6 and #31 show Conflicting.
 
+Then time one full 40-clause check through the Worker. Node has no 6-connection limit, so the eval's timing is optimistic. Run this in a second terminal:
+
+```bash
+node -e 'const d=require("./eval/dataset.json");const text=d.items.map(i=>i.id+". "+i.text).join("\n");const t=Date.now();fetch("http://localhost:8788/api/check",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text})}).then(r=>r.json()).then(j=>console.log(((Date.now()-t)/1000).toFixed(1)+"s", j.error ?? (j.clauses.length+" clauses")))'
+```
+
+Record the time in `RESULTS.md` next to the eval time. The success criterion is judged on the Worker time when the two differ.
+
 - [ ] **Step 8: Commit**
 
 `.env` is gitignored, but check it isn't staged anyway:

@@ -65,6 +65,35 @@ test("a Jev failure gives the friendly 502 and logs no key or clause text", asyn
   for (const secret of [ENV.JEV_AI_API_KEY, ENV.OPENCODE_API_KEY, "robust", "CSV"]) assert.ok(!all.includes(secret), `log leaks ${secret}`);
 });
 
+test("an LLM failure logs its status but no clause text", async () => {
+  const logged = [];
+  console.error = (...args) => logged.push(args.map(String).join(" "));
+  globalThis.fetch = async (url, init) => {
+    if (url.endsWith("/systemone")) return new Response(JSON.stringify({ answers: {}, usage: {} }), { status: 200 });
+    const echoed = JSON.parse(init.body).messages[1].content;
+    return new Response(`upstream error while processing: ${echoed}`, { status: 500 });
+  };
+
+  const res = await worker.fetch(post(TEXT), ENV);
+  assert.equal(res.status, 502);
+  const all = logged.join("\n");
+  assert.match(all, /500/);
+  for (const secret of [ENV.OPENCODE_API_KEY, "robust", "CSV"]) assert.ok(!all.includes(secret), `log leaks ${secret}`);
+});
+
+test("a malformed LLM reply logs no clause text", async () => {
+  const logged = [];
+  console.error = (...args) => logged.push(args.map(String).join(" "));
+  globalThis.fetch = async (url) => {
+    if (url.endsWith("/systemone")) return new Response(JSON.stringify({ answers: {}, usage: {} }), { status: 200 });
+    return new Response(JSON.stringify({ choices: [{ message: { content: '{"conflicts": robust system }' } }] }), { status: 200 });
+  };
+
+  const res = await worker.fetch(post(TEXT), ENV);
+  assert.equal(res.status, 502);
+  assert.ok(!logged.join("\n").includes("robust"), "log leaks clause text");
+});
+
 test("a Jev timeout gives the took-too-long message", async () => {
   console.error = () => {};
   globalThis.fetch = async (url) => {

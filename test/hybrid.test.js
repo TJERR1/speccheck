@@ -1,6 +1,6 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { checkClausesHybrid, JEV_QUESTIONS, THRESHOLDS } from "../src/hybrid.js";
+import { checkClausesHybrid, JEV_QUESTIONS, THRESHOLDS, JEV_TUNED_MODEL } from "../src/hybrid.js";
 import { CONFLICT_PROMPT, REWRITE_PROMPT } from "../src/prompts.js";
 import { JevError } from "../src/jev.js";
 
@@ -50,6 +50,13 @@ test("asks Jev the four non-conflict tags for every clause", async () => {
     assert.deepEqual(Object.keys(b.questions), JEV_QUESTIONS.map((q) => q.id));
     assert.ok(Object.values(b.questions).every((q) => q.type === "noul" && q.instructions.length > 20));
   }
+});
+
+test("calls Jev with the model the thresholds were tuned on", async () => {
+  const log = mockServices();
+  await checkClausesHybrid([clause(1, "A.")], KEYS);
+  assert.equal(JEV_TUNED_MODEL, "jev-1.13.0");
+  assert.equal(log.jev[0].model, JEV_TUNED_MODEL);
 });
 
 test("a probability at the threshold flags; just below does not", async () => {

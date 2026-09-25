@@ -13,7 +13,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkClauses } from "../src/checker.js";
-import { checkClausesHybrid, JEV_QUESTIONS, THRESHOLDS } from "../src/hybrid.js";
+import { checkClausesHybrid, JEV_QUESTIONS, THRESHOLDS, JEV_TUNED_MODEL } from "../src/hybrid.js";
+import { pickThreshold } from "./sweep.js";
 import { listModels, JEV_BASE_URL } from "../src/jev.js";
 import { PROMPTS, TAGS } from "../src/prompts.js";
 import { LLM_MODEL } from "../src/llm.js";
@@ -24,7 +25,7 @@ const runs = Number(args.runs ?? 3);
 const mode = args.mode ?? "llm";
 const promptNames = args.prompts ? args.prompts.split(",") : Object.keys(PROMPTS);
 const model = args.model ?? LLM_MODEL;
-const jevModel = args["jev-model"] ?? "jev-1.13.0";
+const jevModel = args["jev-model"] ?? JEV_TUNED_MODEL;
 const TARGET = { recall: 0.8, precision: 0.7 };
 
 const { items } = JSON.parse(fs.readFileSync(path.join(here, "dataset.json"), "utf8"));
@@ -101,10 +102,7 @@ async function runHybrid() {
   console.log(`\nFull results: ${path.relative(process.cwd(), outFile)}`);
 }
 
-/**
- * For each Jev tag, pick the threshold with the highest recall whose precision is at least the target.
- * Ties go to the higher threshold, which flags less. All runs in the file are pooled.
- */
+/** For each Jev tag, pick a threshold (see eval/sweep.js). All runs in the file are pooled. */
 function sweep(file) {
   if (!Array.isArray(file.probabilities) || file.probabilities.length === 0) {
     console.error("That file has no Jev probabilities. Run `npm run eval -- --mode hybrid` first.");
@@ -112,29 +110,16 @@ function sweep(file) {
   }
   const itemsById = new Map(items.map((it) => [it.id, it]));
   const rows = file.probabilities.flat();
-  const candidates = Array.from({ length: 19 }, (_, i) => Math.round((0.05 + i * 0.05) * 100) / 100);
   const chosen = {};
+  const fallback = [];
 
   console.log(`Sweeping ${rows.length} clause results from ${file.probabilities.length} run(s)\n`);
   console.log("tag              threshold  precision  recall");
   for (const { tag } of JEV_QUESTIONS) {
-    let best = null;
-    for (const t of candidates) {
-      let tp = 0, fp = 0, fn = 0;
-      for (const row of rows) {
-        const item = itemsById.get(row.id);
-        const want = item.tags.includes(tag);
-        const got = row.jev[tag] >= t;
-        const allowed = want || (item.also_ok ?? []).includes(tag);
-        if (want && got) tp++;
-        else if (want && !got) fn++;
-        else if (!allowed && got) fp++;
-      }
-      const precision = tp + fp === 0 ? 1 : tp / (tp + fp);
-      const recall = tp + fn === 0 ? 1 : tp / (tp + fn);
-      if (precision >= TARGET.precision && (!best || recall >= best.recall)) best = { t, precision, recall };
-    }
-    chosen[tag] = best?.t ?? null;
+    const best = pickThreshold(rows, itemsById, tag, TARGET);
+    // A tag Jev can't handle is left out (null) rather than shipped with a weak threshold.
+    chosen[tag] = best?.meetsTarget ? best.t : null;
+    if (!best?.meetsTarget) fallback.push(tag);
     const pct = (x) => `${Math.round(x * 100)}%`;
     console.log(`${tag.padEnd(16)} ${best ? String(best.t).padEnd(10) : "none      "} ${best ? pct(best.precision).padEnd(10) : "-         "} ${best ? pct(best.recall) : "-"}`);
   }
@@ -153,8 +138,12 @@ function sweep(file) {
   );
   const mean = (f) => perRun.reduce((s, r) => s + f(r), 0) / perRun.length;
   console.log(`\nWith these thresholds: clause recall ${Math.round(mean((r) => r.recall) * 100)}%, precision ${Math.round(mean((r) => r.precision) * 100)}% (target: recall ≥ 80%, precision ≥ 70%)`);
-  const failing = JEV_QUESTIONS.filter(({ tag }) => chosen[tag] === null).map((q) => q.tag);
-  if (failing.length) console.log(`No threshold reaches ${TARGET.precision * 100}% precision for: ${failing.join(", ")}`);
+  if (fallback.length) {
+    console.log(
+      `\nNo threshold reaches ${TARGET.recall * 100}% recall at ${TARGET.precision * 100}% precision for: ${fallback.join(", ")}.` +
+        ` Per the spec these tags go back to the LLM; the scores above leave them out.`,
+    );
+  }
   console.log(`\nTHRESHOLDS = ${JSON.stringify(chosen)}`);
 }
 

@@ -26,6 +26,8 @@ SpecCheck runs as a single Cloudflare Worker. The page in `public/` is served as
 2. `src/checker.js` checks the clauses in one of two ways, set by `CHECK_MODE`:
    - **`hybrid`** (the default, `src/hybrid.js`) runs one Jev call per clause (`src/jev.js`) in parallel with one LLM call over the whole list. Jev decides Vague, Untestable, Vendor-locking and Compound, and the LLM call finds Conflicting pairs. Then one small LLM call per flagged clause writes the explanations and the rewrite.
    - **`llm`** sends all the clauses in one model call.
+
+   A hybrid check of N clauses makes up to 2N + 1 outbound requests (N Jev calls, 1 conflict call, and 1 rewrite per flagged clause). The Workers Free plan allows 50 per request, so long pastes need the Workers Paid plan (1,000). Workers also keep at most 6 connections open at once, so the calls queue in batches of 6.
 3. `src/jev.js` calls Jev, TypeSafe's System One decision model, at `https://api.typesafe.ai/v1` (override with `JEV_AI_BASE_URL`). See `JEV_INTEGRATION.md`.
 4. `src/llm.js` calls the OpenCode Go endpoint, which is OpenAI-compatible, with the model `deepseek-v4-flash`.
 5. `src/prompts.js` holds the conflict and rewrite prompts for the hybrid checker, and the two candidate system prompts (`baseline` and `strict`). `ACTIVE_PROMPT` sets which one ships, and `SUPPRESSED_TAGS` can hide a tag that raises too many false alarms.

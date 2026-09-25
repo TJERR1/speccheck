@@ -21,6 +21,9 @@ export const JEV_QUESTIONS = [
 // Minimum Jev probability for each tag to be flagged. Set from `npm run eval -- --sweep`; see eval/RESULTS.md.
 export const THRESHOLDS = { Vague: 0.5, Untestable: 0.5, "Vendor-locking": 0.5, Compound: 0.5 };
 
+// The Jev model THRESHOLDS were tuned on. Pinned so jev-latest moving can't shift the calibration; bump both together.
+export const JEV_TUNED_MODEL = "jev-1.13.0";
+
 export const REWRITE_CONCURRENCY = 8;
 
 const JEV_REQUEST_QUESTIONS = Object.fromEntries(JEV_QUESTIONS.map((q) => [q.id, { type: "noul", instructions: q.instructions }]));
@@ -71,7 +74,7 @@ export async function checkClausesHybrid(
 }
 
 async function jevProbabilities(text, apiKey, options) {
-  const { answers } = await decide({ state: text, questions: JEV_REQUEST_QUESTIONS }, apiKey, options);
+  const { answers } = await decide({ state: text, questions: JEV_REQUEST_QUESTIONS }, apiKey, { model: JEV_TUNED_MODEL, ...options });
   return Object.fromEntries(
     JEV_QUESTIONS.map((q) => {
       const p = answers[q.id]?.noul;
