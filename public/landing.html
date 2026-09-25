@@ -260,6 +260,7 @@
     .stat .sub { color: var(--ink-2); font-size: 0.92rem; margin-top: 2px; }
 
     .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); }
+    .table-wrap + .table-wrap { margin-top: 16px; }
     table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 0.95rem; }
     th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
     th { font: 500 0.74rem var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
@@ -420,24 +421,35 @@
       </div>
 
       <div class="stats">
-        <div class="stat"><div class="big">0<small> / 20</small></div><div class="lbl">False alarms</div><div class="sub">No valid clause was flagged. 100% precision, on both models.</div></div>
-        <div class="stat"><div class="big">19<small> / 20</small></div><div class="lbl">Flawed clauses caught</div><div class="sub">95% recall on the shipped model. Target was 80%.</div></div>
-        <div class="stat"><div class="big">~30%<small> faster</small></div><div class="lbl">3m 03s vs 4m 19s</div><div class="sub">Time to check all 40 clauses, deepseek-v4-flash vs kimi-k3.</div></div>
+        <div class="stat"><div class="big">0<small> / 20</small></div><div class="lbl">False alarms</div><div class="sub">No valid clause was flagged in any run. 100% precision on both prompts and both models.</div></div>
+        <div class="stat"><div class="big">19<small> / 20</small></div><div class="lbl">Flawed clauses caught</div><div class="sub">95% recall on the shipped model, the same in all 3 runs. Target was 80%.</div></div>
+        <div class="stat"><div class="big">2<small> prompts</small></div><div class="lbl">Compared, 3 runs each</div><div class="sub">Same catch rate. The strict prompt labelled flaws correctly more often.</div></div>
       </div>
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Model (strict prompt)</th><th>Precision</th><th>Recall</th><th>False alarms</th><th>40-clause run</th><th>Missed</th></tr></thead>
+          <thead><tr><th>Prompt (deepseek-v4-flash)</th><th>Precision</th><th>Recall</th><th>Runs done</th><th>Tagging</th><th>Missed every run</th></tr></thead>
           <tbody>
-            <tr class="ships"><td>deepseek-v4-flash</td><td class="num">100%</td><td class="num">95%</td><td class="num">0</td><td class="num">183 s</td><td>1 vendor-lock (a vendor-owned data centre)</td></tr>
-            <tr><td>kimi-k3</td><td class="num">100%</td><td class="num">100%</td><td class="num">0</td><td class="num">259 s</td><td>none</td></tr>
+            <tr class="ships"><td>strict</td><td class="num">100%</td><td class="num">95%</td><td class="num">3 / 3</td><td>Right tag on every catch</td><td>1 vendor-lock (a vendor-owned data centre)</td></tr>
+            <tr><td>baseline</td><td class="num">100%</td><td class="num">95%</td><td class="num">3 / 4</td><td>Often called untestable clauses “vague”</td><td>1 side of a conflicting pair (log retention)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Model (strict prompt)</th><th>Precision</th><th>Recall</th><th>False alarms</th><th>Runs</th><th>Missed</th></tr></thead>
+          <tbody>
+            <tr class="ships"><td>deepseek-v4-flash</td><td class="num">100%</td><td class="num">95%</td><td class="num">0</td><td class="num">3</td><td>1 vendor-lock (a vendor-owned data centre)</td></tr>
+            <tr><td>kimi-k3</td><td class="num">100%</td><td class="num">100%</td><td class="num">0</td><td class="num">1</td><td>none</td></tr>
           </tbody>
         </table>
       </div>
 
       <div class="callouts">
-        <div class="card callout"><h3>Decision we made from it</h3><p>We switched the default model to <strong>deepseek-v4-flash</strong>. Precision was identical, which is the number our riskiest assumption depends on, and it was about 30% faster. We traded one missed vendor-lock clause for speed, because users pasting long specs were waiting too long.</p></div>
-        <div class="card callout limit"><h3>Limitation and a failed attempt</h3><p>Our first eval attempt produced no results at all: every 40-clause kimi-k3 call ran past the 60-second limit, so we raised it to 5 minutes. These scores are from <strong>one run per model</strong> on a small, partly hand-written set, so treat them as a promising signal, not proof. Long pastes are still slower than our 10-second target.</p></div>
+        <div class="card callout"><h3>Decisions we made from it</h3><p>We ship the <strong>strict prompt</strong>. Both prompts caught the same clauses with no false alarms. But the baseline prompt often gave the wrong tag, which means a weaker rewrite. It showed only one half of a conflict, and it timed out once. We also switched the default model to <strong>deepseek-v4-flash</strong>. Its precision matched kimi-k3's, which is the number our riskiest assumption depends on, and it was faster. It missed one vendor-lock clause that kimi-k3 caught.</p></div>
+        <div class="card callout limit"><h3>Limitation and a failed attempt</h3><p>Our first eval attempt produced no results at all: every 40-clause kimi-k3 call ran past the 60-second limit, so we raised it to 5 minutes for the eval. Both prompts scored 100% precision, so this set is too clean to show whether the strict prompt cuts nitpicks. The next version needs borderline clauses. A 40-clause check still takes 1–4 minutes, more than the app allows, so the app is built for short pastes today.</p></div>
+      </div>
       </div>
     </div>
   </section>
