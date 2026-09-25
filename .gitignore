@@ -1,5 +1,7 @@
 .env
 .env.*
+!.env.example
 *-key.txt
 .playwright-mcp/
 node_modules/
+.wrangler/

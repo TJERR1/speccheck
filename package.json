@@ -1,0 +1,16 @@
+{
+  "name": "speccheck",
+  "version": "1.0.0",
+  "description": "Paste tender or SOW requirements and get flagged clauses with suggested rewrites.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test",
+    "eval": "node eval/run.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

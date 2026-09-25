@@ -1,0 +1,13 @@
+name = "speccheck"
+main = "src/index.js"
+compatibility_date = "2025-08-01"
+
+# The page, script and styles in public/ are served as static assets.
+[assets]
+directory = "./public"
+
+# OPENCODE_API_KEY is set with `wrangler secret put` for deploys and read
+# from `.env` for local development. Never put it in this file.
+
+[dev]
+port = 8788
