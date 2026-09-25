@@ -2,7 +2,7 @@
 // Uses only fetch, so it runs in both the Worker and Node (for the eval).
 
 export const LLM_BASE_URL = "https://opencode.ai/zen/go/v1";
-export const LLM_MODEL = "kimi-k3";
+export const LLM_MODEL = "deepseek-v4-flash";
 const LLM_TIMEOUT_MS = 60_000;
 
 /**

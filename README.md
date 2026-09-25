@@ -20,7 +20,7 @@ SpecCheck runs as a single Cloudflare Worker. The page in `public/` is served as
 
 1. `src/splitter.js` splits the pasted text into clauses. A new clause starts at a blank line, a bullet or a numbered label (`1.`, `3.2.1`, `(a)`, `REQ-012:`). Wrapped lines are joined back together, and headings are dropped.
 2. `src/checker.js` sends all the clauses in **one** model call, so the model can see the whole list and spot Conflicting pairs. It then normalises the JSON reply.
-3. `src/llm.js` calls the OpenCode Go endpoint, which is OpenAI-compatible, with the model `kimi-k3`.
+3. `src/llm.js` calls the OpenCode Go endpoint, which is OpenAI-compatible, with the model `deepseek-v4-flash`.
 4. `src/prompts.js` holds the two candidate system prompts (`baseline` and `strict`). `ACTIVE_PROMPT` sets which one ships, and `SUPPRESSED_TAGS` can hide a tag that raises too many false alarms.
 
 ```mermaid
