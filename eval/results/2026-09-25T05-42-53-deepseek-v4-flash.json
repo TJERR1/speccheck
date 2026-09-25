@@ -1,0 +1,71 @@
+{
+  "model": "deepseek-v4-flash",
+  "runs": 2,
+  "summaries": [
+    {
+      "name": "strict",
+      "runs": 2,
+      "seconds": 143.216,
+      "precision": 1,
+      "recall": 0.95,
+      "falseAlarms": 0,
+      "tags": {
+        "Vague": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Untestable": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Vendor-locking": {
+          "precision": 1,
+          "recall": 0.75,
+          "fp": 0
+        },
+        "Conflicting": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Compound": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        }
+      },
+      "perRun": [
+        {
+          "seconds": 208.582,
+          "precision": 1,
+          "recall": 0.95,
+          "errors": [
+            {
+              "id": 29,
+              "kind": "missed",
+              "expected": [
+                "Vendor-locking"
+              ]
+            }
+          ]
+        },
+        {
+          "seconds": 77.85,
+          "precision": 1,
+          "recall": 0.95,
+          "errors": [
+            {
+              "id": 29,
+              "kind": "missed",
+              "expected": [
+                "Vendor-locking"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

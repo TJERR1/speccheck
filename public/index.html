@@ -3,124 +3,486 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SpecCheck</title>
-  <meta name="description" content="Catch vague, untestable, vendor-locking, conflicting and compound requirements before review.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f5eff'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css">
+  <title>SpecCheck: catch weak requirements before review</title>
+  <meta name="description" content="SpecCheck reads your draft tender requirements and flags vague, untestable, vendor-locking, conflicting and compound clauses, with a suggested rewrite for each.">
+  <link rel="icon" href="brand/icon.svg" type="image/svg+xml">
+  <meta property="og:title" content="SpecCheck">
+  <meta property="og:description" content="Catch weak requirement wording before your spec goes to review.">
+  <meta property="og:image" content="assets/screenshot.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f7f8fa;
+      --sheet: #ffffff;
+      --ink: #16203a;
+      --ink-2: #5a6478;
+      --rule: #d9dde5;
+      --rule-strong: #c3cad6;
+      --primary: #16203a;
+      --primary-ink: #ffffff;
+      --primary-hover: #2a3656;
+      --redline: #d23b3f;
+      --vague: #8a5a00;      --vague-bg: #fbe7b8;
+      --untestable: #a3321a; --untestable-bg: #fbd5c9;
+      --vendor: #6a3fb5;     --vendor-bg: #e3d7fa;
+      --conflict: #b0184f;   --conflict-bg: #f8d0df;
+      --compound: #0b6782;   --compound-bg: #cdebf4;
+      --clean: #1d7a45;
+      --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+      --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #10151f;
+        --sheet: #171e2b;
+        --ink: #e7eaf0;
+        --ink-2: #9aa4b5;
+        --rule: #2b3445;
+        --rule-strong: #3a4458;
+        --primary: #e7eaf0;
+        --primary-ink: #10151f;
+        --primary-hover: #c3cad6;
+        --redline: #ff6b5e;
+        --vague: #f3c969;      --vague-bg: #463812;
+        --untestable: #ff9f87; --untestable-bg: #4a221a;
+        --vendor: #c3a6ff;     --vendor-bg: #33274a;
+        --conflict: #ff8fb6;   --conflict-bg: #481d2f;
+        --compound: #7fd3ea;   --compound-bg: #133841;
+        --clean: #5fd08f;
+        color-scheme: dark;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 17px/1.6 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    img { max-width: 100%; display: block; }
+    a { color: inherit; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+    @media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+    /* ---------- nav ---------- */
+    .nav {
+      position: sticky; top: 0; z-index: 10;
+      background: color-mix(in srgb, var(--paper) 88%, transparent);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--rule);
+    }
+    .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.05rem; text-decoration: none; }
+    .brand img { height: 32px; width: auto; }
+    .nav-links { display: flex; align-items: center; gap: 24px; font-size: 0.92rem; }
+    .nav-links a:not(.btn) { text-decoration: none; color: var(--ink-2); }
+    .nav-links a:not(.btn):hover { color: var(--ink); }
+    @media (max-width: 719px) { .nav-links a:not(.btn) { display: none; } }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 18px; border-radius: 8px;
+      font: 500 0.95rem var(--sans); text-decoration: none;
+      border: 1px solid var(--rule-strong); background: var(--sheet); color: var(--ink);
+      transition: background .15s, border-color .15s, transform .15s;
+    }
+    .btn:hover { border-color: var(--ink-2); }
+    .btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+    .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+    .btn:focus-visible, a:focus-visible { outline: 2px solid var(--redline); outline-offset: 2px; }
+    .nav .btn { padding: 7px 14px; font-size: 0.88rem; }
+
+    /* ---------- hero ---------- */
+    .hero { padding: 56px 0 72px; }
+    .hero .wrap { display: grid; gap: 48px; align-items: center; }
+    @media (min-width: 960px) { .hero .wrap { grid-template-columns: 1fr 1.05fr; gap: 56px; } .hero { padding: 88px 0 104px; } }
+    .eyebrow {
+      font: 500 0.78rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-2); margin: 0 0 18px;
+    }
+    h1, h2, h3 { font-family: var(--sans); font-weight: 500; letter-spacing: -0.025em; line-height: 1.12; margin: 0; }
+    h1 { font-size: clamp(2.4rem, 5.6vw, 3.8rem); font-weight: 600; letter-spacing: -0.035em; }
+    h1 em, h2 em {
+      font-style: normal;
+      text-decoration: underline wavy var(--redline);
+      text-decoration-thickness: 0.06em; text-underline-offset: 0.16em;
+      text-decoration-skip-ink: none;
+    }
+    .lede { font-size: 1.15rem; color: var(--ink-2); margin: 22px 0 32px; max-width: 34em; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+    /* the marked-up spec sheet */
+    .sheet {
+      background: var(--sheet);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      box-shadow: 0 1px 0 var(--rule), 0 24px 48px -24px rgb(20 24 32 / 0.25);
+      padding: 28px 24px 20px;
+      position: relative;
+    }
+    .sheet::before {
+      content: ""; position: absolute; inset: 10px -8px -10px 8px; z-index: -1;
+      background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px;
+      transform: rotate(1.2deg);
+    }
+    .sheet-head {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px;
+      font: 500 0.75rem var(--mono); color: var(--ink-2); letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--rule); padding-bottom: 12px; margin-bottom: 8px;
+    }
+    .sheet-head .count { color: var(--redline); }
+    .clauses { list-style: none; margin: 0; padding: 0; }
+    .clause {
+      display: grid; grid-template-columns: 2.2em 1fr; gap: 4px 8px;
+      padding: 12px 0; border-bottom: 1px dashed var(--rule);
+      font-family: var(--serif); font-size: 1.06rem; line-height: 1.5;
+    }
+    .clause:last-child { border-bottom: 0; }
+    .clause .n { font: 0.8rem/1.9 var(--mono); color: var(--ink-2); }
+    .clause .flags { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; }
+    @media (min-width: 560px) {
+      .clause { grid-template-columns: 2.2em 1fr auto; }
+      .clause .flags { grid-column: 3; justify-content: flex-end; align-content: start; padding-top: 3px; }
+    }
+
+    mark {
+      color: inherit; background: none;
+      text-decoration: underline wavy transparent;
+      text-decoration-thickness: 1.5px; text-underline-offset: 4px;
+      text-decoration-skip-ink: none;
+      animation: mark-in .5s ease-out forwards;
+      animation-delay: var(--d, 0s);
+    }
+    @keyframes mark-in { to { text-decoration-color: var(--redline); } }
+    .tag {
+      display: inline-block; white-space: nowrap;
+      font: 600 0.72rem/1 var(--sans); letter-spacing: 0.01em;
+      padding: 5px 8px; border-radius: 999px;
+      color: var(--c); background: var(--hl);
+      opacity: 0; transform: translateY(4px);
+      animation: tag-in .35s ease-out forwards;
+      animation-delay: calc(var(--d, 0s) + .35s);
+    }
+    @keyframes tag-in { to { opacity: 1; transform: none; } }
+    .clean-tag { font: 500 0.78rem var(--sans); color: var(--clean); white-space: nowrap; }
+    .v  { --hl: var(--vague-bg);      --c: var(--vague); }
+    .u  { --hl: var(--untestable-bg); --c: var(--untestable); }
+    .vl { --hl: var(--vendor-bg);     --c: var(--vendor); }
+    .cf { --hl: var(--conflict-bg);   --c: var(--conflict); }
+    .cp { --hl: var(--compound-bg);   --c: var(--compound); }
+
+    .rewrite {
+      grid-column: 2 / -1;
+      margin-top: 6px; padding: 10px 12px;
+      border-left: 3px solid var(--primary);
+      background: color-mix(in srgb, var(--primary) 5%, transparent);
+      font: 0.9rem/1.5 var(--sans); color: var(--ink);
+      opacity: 0; animation: tag-in .4s ease-out 1.9s forwards;
+    }
+    .rewrite b { font: 500 0.7rem var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); display: block; margin-bottom: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      mark { animation: none; text-decoration-color: var(--redline); }
+      .tag, .rewrite { animation: none; opacity: 1; transform: none; }
+      html { scroll-behavior: auto; }
+    }
+
+    /* ---------- sections ---------- */
+    section { padding: 72px 0; border-top: 1px solid var(--rule); }
+    @media (min-width: 960px) { section { padding: 96px 0; } }
+    .section-label {
+      font: 500 0.78rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-2); margin: 0 0 16px; display: flex; align-items: center; gap: 10px;
+    }
+    .section-label::before { content: attr(data-n); color: var(--primary); }
+    h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); max-width: 20em; }
+    .prose { max-width: 38em; color: var(--ink-2); font-size: 1.08rem; }
+    .prose p { margin: 18px 0 0; }
+    .prose strong { color: var(--ink); font-weight: 600; }
+
+    .two-col { display: grid; gap: 40px; }
+    @media (min-width: 900px) { .two-col { grid-template-columns: 1.2fr 1fr; gap: 72px; align-items: start; } }
+
+    .card {
+      background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px;
+      padding: 24px;
+    }
+    .card h3 { font-size: 1.35rem; margin-bottom: 10px; }
+    .card p { margin: 0; color: var(--ink-2); }
+    .card dl { margin: 0; display: grid; gap: 14px; }
+    .card dt { font: 500 0.75rem var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
+    .card dd { margin: 2px 0 0; }
+
+    /* flags grid */
+    .flags-grid { display: grid; gap: 16px; margin-top: 40px; }
+    @media (min-width: 640px) { .flags-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1000px) { .flags-grid { grid-template-columns: repeat(3, 1fr); } }
+    .flag-card { border-top: 4px solid var(--c); display: flex; flex-direction: column; gap: 12px; }
+    .flag-card .tag { opacity: 1; transform: none; animation: none; align-self: flex-start; }
+    .flag-card .before { font-family: var(--serif); font-size: 1.08rem; color: var(--ink); line-height: 1.45; }
+    .flag-card .before::before { content: "\201C"; } .flag-card .before::after { content: "\201D"; }
+    .flag-card .why { font-size: 0.93rem; }
+    .flag-card.intro { border-top-color: var(--rule-strong); background: transparent; border-style: dashed; justify-content: center; }
+
+    /* how it works */
+    .steps { list-style: none; padding: 0; margin: 32px 0 0; display: grid; gap: 20px; counter-reset: s; }
+    .steps li { counter-increment: s; display: grid; grid-template-columns: 40px 1fr; gap: 14px; }
+    .steps li::before {
+      content: counter(s); width: 32px; height: 32px; border-radius: 50%;
+      display: grid; place-items: center;
+      font: 500 0.85rem var(--mono); color: var(--primary);
+      border: 1.5px solid var(--primary);
+    }
+    .steps strong { display: block; color: var(--ink); }
+    .steps span { color: var(--ink-2); font-size: 0.97rem; }
+    .shot {
+      border: 1px solid var(--rule); border-radius: 10px; overflow: hidden;
+      background: var(--sheet);
+      box-shadow: 0 24px 48px -28px rgb(20 24 32 / 0.35);
+    }
+    .shot img { width: 100%; height: 620px; object-fit: cover; object-position: 50% 63%; }
+    .shot figcaption { font-size: 0.85rem; color: var(--ink-2); padding: 10px 14px; border-top: 1px solid var(--rule); }
+
+    /* evidence */
+    .stats { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; margin: 40px 0 32px; }
+    @media (min-width: 720px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+    .stat { background: var(--sheet); padding: 24px; }
+    .stat .big { font: 500 clamp(2.4rem, 4.6vw, 3.3rem)/1 var(--sans); letter-spacing: -0.035em; }
+    .stat .big small { font-size: 0.5em; color: var(--ink-2); }
+    .stat .lbl { font-weight: 600; margin-top: 10px; }
+    .stat .sub { color: var(--ink-2); font-size: 0.92rem; margin-top: 2px; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); }
+    .table-wrap + .table-wrap { margin-top: 16px; }
+    table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 0.95rem; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+    th { font: 500 0.74rem var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
+    tbody tr:last-child td { border-bottom: 0; }
+    td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    tr.ships td:first-child::after {
+      content: "ships"; margin-left: 8px; font: 600 0.68rem var(--sans);
+      padding: 3px 7px; border-radius: 999px; color: var(--primary-ink); background: var(--primary);
+    }
+
+    .callouts { display: grid; gap: 16px; margin-top: 32px; }
+    @media (min-width: 900px) { .callouts { grid-template-columns: repeat(2, 1fr); } }
+    .callout { border-left: 4px solid var(--primary); }
+    .callout.limit { border-left-color: var(--vague); }
+    .callout h3 { font-family: var(--sans); font-size: 1rem; font-weight: 600; }
+
+    /* team + footer */
+    .team { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+    .person { display: flex; align-items: center; gap: 12px; padding: 12px 18px 12px 12px; }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+      background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary);
+      font: 600 0.9rem var(--sans);
+    }
+    .person small { display: block; color: var(--ink-2); font-size: 0.85rem; }
+
+    .final { text-align: center; }
+    .final .mark-icon { width: 72px; height: 72px; margin: 0 auto 24px; }
+    .final h2 { margin: 0 auto; }
+    .final .cta-row { justify-content: center; margin-top: 28px; }
+    .final .note { color: var(--ink-2); font-size: 0.9rem; max-width: 34em; margin: 20px auto 0; }
+
+    footer { border-top: 1px solid var(--rule); padding: 28px 0 40px; color: var(--ink-2); font-size: 0.88rem; }
+    footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+  </style>
 </head>
 <body>
-  <header class="site-header">
+  <nav class="nav" aria-label="Main">
     <div class="wrap">
-      <h1 class="brand"><span class="brand-mark" aria-hidden="true">✓</span>SpecCheck</h1>
-      <p class="tagline">Catch weak requirement wording before your spec goes to review.</p>
+      <a class="brand" href="#top"><picture><source srcset="brand/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="brand/logo.svg" alt="SpecCheck" width="150" height="32"></picture></a>
+      <div class="nav-links">
+        <a href="#problem">Problem</a>
+        <a href="#flags">What it checks</a>
+        <a href="#evidence">Evidence</a>
+        <a href="#team">Team</a>
+        <a class="btn btn-primary" href="/app">Open the app</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">Tender specification linter</p>
+        <h1>Catch weak requirements <em>before</em> the vendors do.</h1>
+        <p class="lede">Paste the requirements section of a tender or statement of work. SpecCheck reads every clause, flags the ones that are vague, untestable, vendor-locking, conflicting or compound, and suggests a rewrite you can accept in one click.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/app">Check a spec now →</a>
+          <a class="btn" href="#evidence">See the evaluation</a>
+        </div>
+      </div>
+
+      <figure class="sheet" aria-label="Example: five draft clauses with SpecCheck's flags">
+        <div class="sheet-head"><span>§3.1 GENERAL REQUIREMENTS · DRAFT</span><span class="count">4 of 5 flagged</span></div>
+        <ol class="clauses">
+          <li class="clause">
+            <span class="n">3.1.1</span>
+            <span>The system shall be <mark class="v" style="--d:.3s">user-friendly and intuitive</mark>.</span>
+            <span class="flags"><span class="tag v" style="--d:.3s">Vague</span><span class="tag u" style="--d:.45s">Untestable</span></span>
+            <p class="rewrite"><b>Suggested rewrite</b>A first-time user, given no more than [X] minutes of training, shall complete [defined core task] unaided within [Y] minutes.</p>
+          </li>
+          <li class="clause">
+            <span class="n">3.1.2</span>
+            <span>All laptops shall be <mark class="vl" style="--d:.7s">Dell Latitude 7450</mark> with Intel Core Ultra 7 processors.</span>
+            <span class="flags"><span class="tag vl" style="--d:.7s">Vendor-locking</span></span>
+          </li>
+          <li class="clause">
+            <span class="n">3.1.3</span>
+            <span>The vendor shall back up all data nightly<mark class="cp" style="--d:1s">, restore any backup within 4 hours, and train 20 administrators</mark>.</span>
+            <span class="flags"><span class="tag cp" style="--d:1s">Compound</span></span>
+          </li>
+          <li class="clause">
+            <span class="n">3.1.4</span>
+            <span>Audit logs shall be <mark class="cf" style="--d:1.3s">deleted after 6 months</mark>. <span style="color:var(--ink-2);font-size:.9em">(§3.4.2 says retain for 12.)</span></span>
+            <span class="flags"><span class="tag cf" style="--d:1.3s">Conflicting</span></span>
+          </li>
+          <li class="clause">
+            <span class="n">3.1.5</span>
+            <span>The system shall export reports in PDF and CSV formats.</span>
+            <span class="flags"><span class="clean-tag">✓ Clean</span></span>
+          </li>
+        </ol>
+      </figure>
     </div>
   </header>
 
-  <main class="wrap">
-    <aside class="notice" role="note">
-      <strong>Do not paste classified, restricted or sensitive information.</strong>
-      Text is sent to an AI model for checking, processed in memory, and never saved.
-    </aside>
-
-    <section class="input-panel" aria-labelledby="input-heading">
-      <label id="input-heading" for="spec-input" class="panel-title">Paste your draft requirements, or upload a Word document</label>
-      <p class="hint">One requirement per line or numbered item. Up to 60 clauses. Each is checked for
-        <span class="tag tag-vague">Vague</span>
-        <span class="tag tag-untestable">Untestable</span>
-        <span class="tag tag-vendor-locking">Vendor-locking</span>
-        <span class="tag tag-conflicting">Conflicting</span>
-        <span class="tag tag-compound">Compound</span>
-      </p>
-      <textarea id="spec-input" rows="12" spellcheck="false" placeholder="1. The system shall be user-friendly.
-2. The system shall support at least 500 concurrent users with page loads under 2 seconds.
-3. All laptops shall be Dell Latitude 7450."></textarea>
-      <div id="file-chip" class="file-chip" hidden>
-        <span class="file-icon" aria-hidden="true">W</span>
-        <span><strong id="file-name"></strong> <span id="file-meta" class="file-meta"></span></span>
-        <button id="file-clear" class="btn btn-small btn-ghost" type="button">Remove</button>
-      </div>
-      <div class="input-actions">
-        <button id="check-btn" class="btn btn-primary" type="button">Check Requirements</button>
-        <button id="upload-btn" class="btn" type="button">Upload .docx</button>
-        <input id="file-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
-        <span id="status" class="status" role="status" aria-live="polite"></span>
-      </div>
-    </section>
-
-    <section id="results" class="results" hidden aria-labelledby="results-heading">
-      <div class="results-head">
-        <h2 id="results-heading" class="panel-title">Results</h2>
-        <p id="summary" class="summary"></p>
-      </div>
-      <p class="hint">Click a flagged row to see why it was flagged and the suggested fix.</p>
-
-      <table class="results-table">
-        <thead>
-          <tr>
-            <th scope="col" class="col-num">#</th>
-            <th scope="col">Requirement</th>
-            <th scope="col" class="col-issues">Issues</th>
-          </tr>
-        </thead>
-        <tbody id="results-body"></tbody>
-      </table>
-
-      <div class="export-bar">
-        <p id="export-hint" class="hint">Cleaned spec uses your accepted rewrites and edits, and the original wording everywhere else.</p>
-        <div class="export-actions">
-          <button id="download-btn" class="btn" type="button">Download .txt</button>
-          <button id="copy-all-btn" class="btn btn-primary" type="button">Copy All Cleaned</button>
-          <button id="docx-btn" class="btn btn-primary" type="button" hidden>Download .docx with tracked changes</button>
+  <section id="problem">
+    <div class="wrap two-col">
+      <div>
+        <p class="section-label" data-n="01">The problem</p>
+        <h2>“Fast response” means one thing to you and another to the vendor.</h2>
+        <div class="prose">
+          <p><strong>Engineers and project officers drafting their first tender specs</strong> write requirements that read fine to them but can't be priced, tested or fairly competed.</p>
+          <p>Those weak clauses get caught late: in review, in vendor clarification questions, or at acceptance testing, when it's expensive to change them. Reviewers spend their time on basic wording instead of substance, and a single vague “shall” can turn into a contract dispute.</p>
+          <p>A keyword list catches “user-friendly” or “etc.”. It can't judge whether “support 500 users” is testable, whether two clauses twelve pages apart contradict, or whether a spec quietly describes one supplier's product. That judgement is what SpecCheck uses an LLM for.</p>
         </div>
       </div>
-      <p id="export-note" class="status export-note" role="status" aria-live="polite"></p>
-    </section>
-  </main>
+      <div class="card">
+        <dl>
+          <div><dt>Target user</dt><dd>An engineer or project officer drafting their first few tender specs, before the draft goes to review or out to market.</dd></div>
+          <div><dt>Outcome metric</dt><dd>Fewer ambiguity-driven vendor clarification questions and review comments. <br><span style="color:var(--ink-2)">Demo proxy: % of known-bad requirements caught before review, at an acceptable false-positive rate.</span></dd></div>
+          <div><dt>Riskiest assumption</dt><dd>That the flags are precise enough. If most flags are nitpicks, users will ignore all of them. So we measured false alarms first.</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
 
-  <template id="row-template">
-    <tr class="clause-row">
-      <td class="col-num"></td>
-      <td class="clause-cell">
-        <button type="button" class="row-toggle" aria-expanded="false">
-          <span class="clause-text"></span>
-        </button>
-        <span class="row-state"></span>
-      </td>
-      <td class="col-issues"></td>
-    </tr>
-  </template>
+  <section id="flags">
+    <div class="wrap">
+      <p class="section-label" data-n="02">What it checks</p>
+      <h2>Five drafting flaws, each with a reason and a <em>rewrite</em>.</h2>
+      <div class="flags-grid">
+        <article class="card flag-card v"><span class="tag v">Vague</span><p class="before">The system shall be user-friendly.</p><p class="why">Subjective wording with no agreed meaning. Two bidders will price two different products.</p></article>
+        <article class="card flag-card u"><span class="tag u">Untestable</span><p class="before">The system shall provide fast response times.</p><p class="why">No pass/fail check exists at acceptance. SpecCheck asks for a number and a measurement condition.</p></article>
+        <article class="card flag-card vl"><span class="tag vl">Vendor-locking</span><p class="before">All laptops shall be Dell Latitude 7450.</p><p class="why">A brand name, or a spec only one supplier can meet, shrinks competition and invites challenge.</p></article>
+        <article class="card flag-card cf"><span class="tag cf">Conflicting</span><p class="before">Retain logs for 12 months … delete logs after 6 months.</p><p class="why">Two clauses can't both be met. The whole list is checked in one pass so contradictions far apart are caught.</p></article>
+        <article class="card flag-card cp"><span class="tag cp">Compound</span><p class="before">Back up nightly, restore within 4 hours, and train 20 administrators.</p><p class="why">Three requirements in one “shall”. One can pass while another fails. The rewrite splits them.</p></article>
+        <article class="card flag-card intro"><h3>Clean clauses stay clean.</h3><p>Good requirements get a green ✓ and are left alone. Precision matters more than catching everything.</p></article>
+      </div>
+    </div>
+  </section>
 
-  <template id="detail-template">
-    <tr class="detail-row" hidden>
-      <td></td>
-      <td colspan="2">
-        <div class="detail">
-          <ul class="explanations"></ul>
-          <div class="rewrite-block">
-            <div class="detail-label">Suggested rewrite</div>
-            <p class="rewrite-text"></p>
-            <div class="detail-actions">
-              <button type="button" class="btn btn-small btn-primary accept-btn">Accept rewrite</button>
-              <button type="button" class="btn btn-small copy-btn">Copy rewrite</button>
-              <button type="button" class="btn btn-small edit-btn">Edit</button>
-              <button type="button" class="btn btn-small btn-ghost revert-btn" hidden>Revert to original</button>
-            </div>
-          </div>
-          <div class="edit-block" hidden>
-            <label class="detail-label">Your wording</label>
-            <textarea class="edit-input" rows="3"></textarea>
-            <div class="detail-actions">
-              <button type="button" class="btn btn-small btn-primary save-btn">Save</button>
-              <button type="button" class="btn btn-small btn-ghost cancel-btn">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </td>
-    </tr>
-  </template>
+  <section id="how">
+    <div class="wrap two-col">
+      <div>
+        <p class="section-label" data-n="03">How it works</p>
+        <h2>Paste, check, accept. Your numbering is kept.</h2>
+        <ol class="steps">
+          <li><div><strong>Paste your draft</strong><span>Numbered items, bullets or one clause per line, up to 60 clauses. Headings are dropped and wrapped lines joined.</span></div></li>
+          <li><div><strong>Check requirements</strong><span>One model call sees the whole list, so it can spot conflicts between clauses, and returns flags, reasons and rewrites as structured JSON.</span></div></li>
+          <li><div><strong>Accept or edit each rewrite</strong><span>Then Copy All Cleaned or download a .txt of the full spec with your original numbering.</span></div></li>
+        </ol>
+        <p class="prose" style="font-size:.95rem;margin-top:28px">Nothing is stored: no database, no browser storage, and pasted text is never logged. Don't paste classified or sensitive material, because text is sent to the model provider for checking.</p>
+      </div>
+      <figure class="shot" style="margin:0">
+        <img src="assets/screenshot.png" alt="SpecCheck results: eight clauses, six flagged, with an expanded row showing the reason and a suggested rewrite." loading="lazy" width="917" height="1908">
+        <figcaption>The working app: 8 clauses, 6 flagged, 2 clean.</figcaption>
+      </figure>
+    </div>
+  </section>
 
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <section id="evidence">
+    <div class="wrap">
+      <p class="section-label" data-n="04">Evidence</p>
+      <h2>We tested the riskiest assumption <em>first</em>.</h2>
+      <div class="prose">
+        <p>We built a labelled set of <strong>40 requirements</strong>: 20 valid clauses in the style of public ICT and facilities tenders, and 20 flawed ones written by hand, four per flag. The eval checks all 40 as one document, just as the app does, and scores precision and recall per flag. Our target was ≥ 80% recall and ≥ 70% precision.</p>
+      </div>
 
-  <script src="app.js" type="module"></script>
+      <div class="stats">
+        <div class="stat"><div class="big">0<small> / 20</small></div><div class="lbl">False alarms</div><div class="sub">No valid clause was flagged in any run. 100% precision on both prompts and both models.</div></div>
+        <div class="stat"><div class="big">19<small> / 20</small></div><div class="lbl">Flawed clauses caught</div><div class="sub">95% recall on the shipped model, the same in all 3 runs. Target was 80%.</div></div>
+        <div class="stat"><div class="big">2<small> prompts</small></div><div class="lbl">Compared, 3 runs each</div><div class="sub">Same catch rate. The strict prompt labelled flaws correctly more often.</div></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Prompt (deepseek-v4-flash)</th><th>Precision</th><th>Recall</th><th>Runs done</th><th>Tagging</th><th>Missed every run</th></tr></thead>
+          <tbody>
+            <tr class="ships"><td>strict</td><td class="num">100%</td><td class="num">95%</td><td class="num">3 / 3</td><td>Right tag on every catch</td><td>1 vendor-lock (a vendor-owned data centre)</td></tr>
+            <tr><td>baseline</td><td class="num">100%</td><td class="num">95%</td><td class="num">3 / 4</td><td>Often called untestable clauses “vague”</td><td>1 side of a conflicting pair (log retention)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Model (strict prompt)</th><th>Precision</th><th>Recall</th><th>False alarms</th><th>Runs</th><th>Missed</th></tr></thead>
+          <tbody>
+            <tr class="ships"><td>deepseek-v4-flash</td><td class="num">100%</td><td class="num">95%</td><td class="num">0</td><td class="num">3</td><td>1 vendor-lock (a vendor-owned data centre)</td></tr>
+            <tr><td>kimi-k3</td><td class="num">100%</td><td class="num">100%</td><td class="num">0</td><td class="num">1</td><td>none</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callouts">
+        <div class="card callout"><h3>Decisions we made from it</h3><p>We ship the <strong>strict prompt</strong>. Both prompts caught the same clauses with no false alarms. But the baseline prompt often gave the wrong tag, which means a weaker rewrite. It showed only one half of a conflict, and it timed out once. We also switched the default model to <strong>deepseek-v4-flash</strong>. Its precision matched kimi-k3's, which is the number our riskiest assumption depends on, and it was faster. It missed one vendor-lock clause that kimi-k3 caught.</p></div>
+        <div class="card callout limit"><h3>Limitation and a failed attempt</h3><p>Our first eval attempt produced no results at all: every 40-clause kimi-k3 call ran past the 60-second limit, so we raised it to 5 minutes for the eval. Both prompts scored 100% precision, so this set is too clean to show whether the strict prompt cuts nitpicks. The next version needs borderline clauses. A 40-clause check still takes 1–4 minutes, more than the app allows, so the app is built for short pastes today.</p></div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="team">
+    <div class="wrap">
+      <p class="section-label" data-n="05">Team</p>
+      <h2>Built by humans and agents, together.</h2>
+      <div class="team">
+        <div class="card person"><span class="avatar">J</span><div>Jerry<small>Professional Claude wrangler</small></div></div>
+        <div class="card person"><span class="avatar">CH</span><div>Chee Howe<small>Professional Claude wrangler</small></div></div>
+        <div class="card person"><span class="avatar" aria-hidden="true">✦</span><div>Claude Code<small>Pair-programming agent</small></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <img class="mark-icon" src="brand/icon.svg" alt="SpecCheck icon" width="72" height="72">
+      <h2>Your next spec, <em>checked</em> before review.</h2>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/app">Open SpecCheck →</a>
+        <a class="btn" href="https://github.com/TJERR1/speccheck">View the source</a>
+      </div>
+      <p class="note">Paste a draft requirements section and see flags in seconds for a short list.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span>Spec<b>Check</b> · Project 5 submission</span>
+      <span>Don't paste classified, restricted or sensitive information.</span>
+    </div>
+  </footer>
 </body>
 </html>

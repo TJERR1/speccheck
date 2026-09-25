@@ -1,0 +1,49 @@
+{
+  "model": "kimi-k3",
+  "runs": 1,
+  "summaries": [
+    {
+      "name": "strict",
+      "runs": 1,
+      "seconds": 259.474,
+      "precision": 1,
+      "recall": 1,
+      "falseAlarms": 0,
+      "tags": {
+        "Vague": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Untestable": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Vendor-locking": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Conflicting": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Compound": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        }
+      },
+      "perRun": [
+        {
+          "seconds": 259.474,
+          "precision": 1,
+          "recall": 1,
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

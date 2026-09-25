@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpecCheck</title>
+  <meta name="description" content="Catch vague, untestable, vendor-locking, conflicting and compound requirements before review.">
+  <link rel="icon" href="brand/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <h1 class="brand"><img class="brand-mark" src="brand/icon.svg" alt="" width="40" height="40"><span>Spec<b>Check</b></span></h1>
+      <p class="tagline">Spell-check for tender requirements. Catch weak wording before your spec goes to review.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <aside class="notice" role="note">
+      <strong>Do not paste classified, restricted or sensitive information.</strong>
+      Text is sent to an AI model for checking, processed in memory, and never saved.
+    </aside>
+
+    <section class="input-panel" aria-labelledby="input-heading">
+      <label id="input-heading" for="spec-input" class="panel-title">Paste your draft requirements, or upload a Word document</label>
+      <p class="hint">One requirement per line or numbered item. Up to 60 clauses. Each is checked for
+        <span class="tag tag-vague">Vague</span>
+        <span class="tag tag-untestable">Untestable</span>
+        <span class="tag tag-vendor-locking">Vendor-locking</span>
+        <span class="tag tag-conflicting">Conflicting</span>
+        <span class="tag tag-compound">Compound</span>
+      </p>
+      <textarea id="spec-input" rows="12" spellcheck="false" placeholder="1. The system shall be user-friendly.
+2. The system shall support at least 500 concurrent users with page loads under 2 seconds.
+3. All laptops shall be Dell Latitude 7450."></textarea>
+      <div id="file-chip" class="file-chip" hidden>
+        <span class="file-icon" aria-hidden="true">W</span>
+        <span><strong id="file-name"></strong> <span id="file-meta" class="file-meta"></span></span>
+        <button id="file-clear" class="btn btn-small btn-ghost" type="button">Remove</button>
+      </div>
+      <div class="input-actions">
+        <button id="check-btn" class="btn btn-primary" type="button">Check Requirements</button>
+        <button id="upload-btn" class="btn" type="button">Upload .docx</button>
+        <input id="file-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+        <span id="status" class="status" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <section id="results" class="results" hidden aria-labelledby="results-heading">
+      <div class="results-head">
+        <h2 id="results-heading" class="panel-title">Results</h2>
+        <p id="summary" class="summary"></p>
+      </div>
+      <p class="hint">Click a flagged row to see why it was flagged and the suggested fix.</p>
+
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th scope="col" class="col-num">#</th>
+            <th scope="col">Requirement</th>
+            <th scope="col" class="col-issues">Issues</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+
+      <div class="export-bar">
+        <p id="export-hint" class="hint">Cleaned spec uses your accepted rewrites and edits, and the original wording everywhere else.</p>
+        <div class="export-actions">
+          <button id="download-btn" class="btn" type="button">Download .txt</button>
+          <button id="copy-all-btn" class="btn btn-primary" type="button">Copy All Cleaned</button>
+          <button id="docx-btn" class="btn btn-primary" type="button" hidden>Download .docx with tracked changes</button>
+        </div>
+      </div>
+      <p id="export-note" class="status export-note" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <template id="row-template">
+    <tr class="clause-row">
+      <td class="col-num"></td>
+      <td class="clause-cell">
+        <button type="button" class="row-toggle" aria-expanded="false">
+          <span class="clause-text"></span>
+        </button>
+        <span class="row-state"></span>
+      </td>
+      <td class="col-issues"></td>
+    </tr>
+  </template>
+
+  <template id="detail-template">
+    <tr class="detail-row" hidden>
+      <td></td>
+      <td colspan="2">
+        <div class="detail">
+          <ul class="explanations"></ul>
+          <div class="rewrite-block">
+            <div class="detail-label">Suggested rewrite</div>
+            <p class="rewrite-text"></p>
+            <div class="detail-actions">
+              <button type="button" class="btn btn-small btn-primary accept-btn">Accept rewrite</button>
+              <button type="button" class="btn btn-small copy-btn">Copy rewrite</button>
+              <button type="button" class="btn btn-small edit-btn">Edit</button>
+              <button type="button" class="btn btn-small btn-ghost revert-btn" hidden>Revert to original</button>
+            </div>
+          </div>
+          <div class="edit-block" hidden>
+            <label class="detail-label">Your wording</label>
+            <textarea class="edit-input" rows="3"></textarea>
+            <div class="detail-actions">
+              <button type="button" class="btn btn-small btn-primary save-btn">Save</button>
+              <button type="button" class="btn btn-small btn-ghost cancel-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </template>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

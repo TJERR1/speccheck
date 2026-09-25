@@ -16,6 +16,10 @@ You can also **upload a Word document (.docx)** instead of pasting. Every paragr
 
 Do not paste classified, restricted or sensitive information. Pasted text is sent to the LLM provider for checking. SpecCheck itself stores nothing: no database, no browser storage, and the Worker never logs the pasted text.
 
+## Landing page
+
+`public/index.html` is the public landing page (served at `/`; the app itself is `public/app.html` at `/app`): problem statement, target user, outcome metric, riskiest assumption and eval evidence. It uses the brand icon and logos in `public/brand/`, and the product screenshot in `public/assets/`.
+
 ## Architecture
 
 SpecCheck runs as a single Cloudflare Worker. The page in `public/` is served as static assets, and `POST /api/check` is handled by `src/index.js`:
@@ -83,4 +87,4 @@ npm run eval -- --runs 1 --prompts strict --model deepseek-v4-flash
 
 The eval checks all 40 clauses as one document, the same way the app does. It reports clause-level recall and precision, per-tag scores, and every miss and false alarm. Results are saved to `eval/results/`. The target is ≥ 80% recall and ≥ 70% precision.
 
-**Status: not yet run to completion.** In the first attempt, every 40-clause `kimi-k3` call ran past the 60-second limit, so there are no results yet. Eval runs now allow 5 minutes. The app currently ships the `strict` prompt, but no eval results support that choice yet. A shorter paste of 8 clauses takes about 10 seconds with `kimi-k3`. Long pastes may need a faster model to stay near the 10-second target.
+**Result: `strict` ships.** On `deepseek-v4-flash`, both prompts reached 95% recall and 100% precision, with no false alarms on the 20 valid clauses. `strict` assigned the right tag more often. `baseline` usually called untestable clauses "Vague", and it missed one side of a conflicting pair every time. It also timed out on 1 of 4 runs. A 40-clause check takes 52–260s, which is longer than the app's 60s model timeout, so keep pastes short. See [`eval/RESULTS.md`](eval/RESULTS.md) for per-tag scores and limitations.
