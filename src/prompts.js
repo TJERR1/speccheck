@@ -43,3 +43,11 @@ export function buildUserMessage(clauses) {
   const lines = clauses.map((c) => `${c.id}. ${c.text}`).join("\n");
   return `Clauses to review:\n${lines}`;
 }
+
+// One slice of a long document. The model sees every clause, so it can still
+// spot Conflicting pairs, but only reviews and returns the clauses in `batch`.
+export function buildBatchMessage(allClauses, batch) {
+  const lines = allClauses.map((c) => `${c.id}. ${c.text}`).join("\n");
+  const ids = batch.map((c) => c.id);
+  return `All clauses in the document, for context (e.g. to spot Conflicting pairs):\n${lines}\n\nReview ONLY clauses ${ids[0]}-${ids.at(-1)}. Return results for exactly those ids.`;
+}

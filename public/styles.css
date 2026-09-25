@@ -175,7 +175,22 @@ textarea:focus-visible, button:focus-visible { outline: 3px solid var(--primary)
   margin-top: 16px;
 }
 .export-bar .hint { margin: 0; max-width: 28rem; }
-.export-actions { display: flex; gap: 8px; }
+.export-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.export-note { display: block; margin: 12px 0 0; }
+.export-note:empty { display: none; }
+
+.file-chip {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.file-chip[hidden] { display: none; }
+.file-icon {
+  display: grid; place-items: center; width: 32px; height: 32px; flex: none;
+  border-radius: 6px; background: var(--primary); color: var(--primary-text); font-weight: 700;
+}
+.file-meta { color: var(--muted); font-size: 0.9rem; }
+.file-chip .btn { margin-left: auto; }
+textarea.is-dragover { outline: 3px dashed var(--primary); outline-offset: 2px; }
 
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);

@@ -23,7 +23,7 @@
     </aside>
 
     <section class="input-panel" aria-labelledby="input-heading">
-      <label id="input-heading" for="spec-input" class="panel-title">Paste your draft requirements</label>
+      <label id="input-heading" for="spec-input" class="panel-title">Paste your draft requirements, or upload a Word document</label>
       <p class="hint">One requirement per line or numbered item. Up to 60 clauses. Each is checked for
         <span class="tag tag-vague">Vague</span>
         <span class="tag tag-untestable">Untestable</span>
@@ -34,8 +34,15 @@
       <textarea id="spec-input" rows="12" spellcheck="false" placeholder="1. The system shall be user-friendly.
 2. The system shall support at least 500 concurrent users with page loads under 2 seconds.
 3. All laptops shall be Dell Latitude 7450."></textarea>
+      <div id="file-chip" class="file-chip" hidden>
+        <span class="file-icon" aria-hidden="true">W</span>
+        <span><strong id="file-name"></strong> <span id="file-meta" class="file-meta"></span></span>
+        <button id="file-clear" class="btn btn-small btn-ghost" type="button">Remove</button>
+      </div>
       <div class="input-actions">
         <button id="check-btn" class="btn btn-primary" type="button">Check Requirements</button>
+        <button id="upload-btn" class="btn" type="button">Upload .docx</button>
+        <input id="file-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
         <span id="status" class="status" role="status" aria-live="polite"></span>
       </div>
     </section>
@@ -59,12 +66,14 @@
       </table>
 
       <div class="export-bar">
-        <p class="hint">Cleaned spec uses your accepted rewrites and edits, and the original wording everywhere else.</p>
+        <p id="export-hint" class="hint">Cleaned spec uses your accepted rewrites and edits, and the original wording everywhere else.</p>
         <div class="export-actions">
           <button id="download-btn" class="btn" type="button">Download .txt</button>
           <button id="copy-all-btn" class="btn btn-primary" type="button">Copy All Cleaned</button>
+          <button id="docx-btn" class="btn btn-primary" type="button" hidden>Download .docx with tracked changes</button>
         </div>
       </div>
+      <p id="export-note" class="status export-note" role="status" aria-live="polite"></p>
     </section>
   </main>
 

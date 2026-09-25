@@ -11,6 +11,24 @@ const MODAL = /\b(shall|must|will|should|is required to|are required to)\b/i;
 const MIN_CLAUSE_LENGTH = 8;
 
 export function splitClauses(text) {
+  return splitBlocks(linesToBlocks(text));
+}
+
+// Word paragraphs are already discrete, so each non-empty one is its own block
+// and is never joined to its neighbour. Each clause records its paragraph index
+// in `block`, so rewrites can be mapped back into the document.
+export function splitParagraphs(paragraphs) {
+  const blocks = [];
+  paragraphs.forEach((raw, index) => {
+    const line = String(raw ?? "").trim();
+    if (line === "") return;
+    const marker = line.match(MARKER);
+    blocks.push({ label: marker ? marker[0].trim() : "", text: line.slice(marker ? marker[0].length : 0), block: index });
+  });
+  return splitBlocks(blocks);
+}
+
+function linesToBlocks(text) {
   const blocks = [];
   let current = null;
 
@@ -28,13 +46,16 @@ export function splitClauses(text) {
       current.text += " " + line;
     }
   }
+  return blocks;
+}
 
+function splitBlocks(blocks) {
   const clauses = [];
   for (const block of blocks) {
     const parts = splitSentences(block.text);
     parts.forEach((part, i) => {
       const label = parts.length > 1 && block.label ? `${block.label} (${i + 1})` : block.label;
-      clauses.push({ label, text: part });
+      clauses.push(block.block === undefined ? { label, text: part } : { label, text: part, block: block.block });
     });
   }
 

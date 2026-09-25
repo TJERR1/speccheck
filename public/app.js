@@ -1,6 +1,10 @@
 // SpecCheck front end. All state lives in memory for this page only;
 // nothing is written to localStorage or anywhere else.
 
+import { readDocx, paragraphEdits, buildTrackedDocx, DocxError } from "./docx.js";
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
 const $ = (sel) => document.querySelector(sel);
 const input = $("#spec-input");
 const checkBtn = $("#check-btn");
@@ -11,6 +15,8 @@ const summaryEl = $("#summary");
 
 let clauses = [];
 let timer = null;
+// The uploaded Word document, if any: { name, doc, texts }. Never leaves the page.
+let upload = null;
 
 checkBtn.addEventListener("click", runCheck);
 input.addEventListener("keydown", (e) => {
@@ -18,10 +24,66 @@ input.addEventListener("keydown", (e) => {
 });
 $("#copy-all-btn").addEventListener("click", () => copy(cleanedText(), "Cleaned spec copied"));
 $("#download-btn").addEventListener("click", downloadCleaned);
+$("#docx-btn").addEventListener("click", downloadTrackedDocx);
+
+const fileInput = $("#file-input");
+$("#upload-btn").addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => fileInput.files[0] && loadFile(fileInput.files[0]));
+$("#file-clear").addEventListener("click", clearFile);
+input.addEventListener("dragover", (e) => {
+  if (![...e.dataTransfer.items].some((i) => i.kind === "file")) return;
+  e.preventDefault();
+  input.classList.add("is-dragover");
+});
+input.addEventListener("dragleave", () => input.classList.remove("is-dragover"));
+input.addEventListener("drop", (e) => {
+  input.classList.remove("is-dragover");
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  e.preventDefault();
+  loadFile(file);
+});
+
+async function loadFile(file) {
+  fileInput.value = "";
+  if (!/\.docx$/i.test(file.name)) {
+    setStatus("Only .docx files are supported. In Word, use File › Save As › Word Document (.docx).", "error");
+    return;
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    setStatus("That file is over 10 MB. Upload just the requirements section.", "error");
+    return;
+  }
+  try {
+    const doc = await readDocx(file);
+    const texts = doc.paragraphs.map((p) => p.text);
+    if (texts.every((t) => t.trim() === "")) throw new DocxError("That document has no text to check.");
+    upload = { name: file.name, doc, texts };
+  } catch (err) {
+    setStatus(err instanceof DocxError ? err.message : "Couldn't open that file. Check it opens in Word and try again.", "error");
+    return;
+  }
+  $("#file-name").textContent = upload.name;
+  const count = upload.texts.filter((t) => t.trim() !== "").length;
+  $("#file-meta").textContent = `· ${count} paragraph${count === 1 ? "" : "s"}`;
+  $("#file-chip").hidden = false;
+  input.hidden = true;
+  resultsEl.hidden = true;
+  setStatus("");
+}
+
+function clearFile() {
+  upload = null;
+  $("#file-chip").hidden = true;
+  input.hidden = false;
+  resultsEl.hidden = true;
+  setStatus("");
+  input.focus();
+}
 
 async function runCheck() {
   const text = input.value;
-  if (text.trim() === "") {
+  if (!upload && text.trim() === "") {
     setStatus("Paste some requirements first.", "error");
     input.focus();
     return;
@@ -32,18 +94,22 @@ async function runCheck() {
     const res = await fetch("/api/check", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(upload ? { paragraphs: upload.texts } : { text }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Something went wrong. Try again.");
 
     clauses = data.clauses.map((c) => ({ ...c, final: c.text, state: "original" }));
     if (clauses.length === 0) {
-      setStatus("No requirements found. Put each requirement on its own line.", "error");
+      setStatus(
+        upload ? "No requirements found in that document." : "No requirements found. Put each requirement on its own line.",
+        "error",
+      );
       resultsEl.hidden = true;
       return;
     }
     render();
+    setExportMode();
     setStatus("");
     resultsEl.hidden = false;
     resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -198,10 +264,48 @@ function cleanedText() {
 }
 
 function downloadCleaned() {
-  const url = URL.createObjectURL(new Blob([cleanedText() + "\n"], { type: "text/plain" }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: "cleaned-requirements.txt" });
+  save(new Blob([cleanedText() + "\n"], { type: "text/plain" }), "cleaned-requirements.txt");
+}
+
+function setExportMode() {
+  const docx = Boolean(upload);
+  $("#docx-btn").hidden = !docx;
+  $("#copy-all-btn").classList.toggle("btn-primary", !docx);
+  $("#export-hint").textContent = docx
+    ? "Your document comes back unchanged except for your accepted rewrites and edits, each as a tracked change you can accept or reject in Word."
+    : "Cleaned spec uses your accepted rewrites and edits, and the original wording everywhere else.";
+  $("#export-note").textContent = "";
+}
+
+async function downloadTrackedDocx() {
+  const note = $("#export-note");
+  const { edits, unmapped } = paragraphEdits(upload.texts, clauses);
+  if (edits.length === 0 && unmapped.length === 0) {
+    toast("Accept or edit a rewrite first. Nothing has changed yet.");
+    return;
+  }
+  try {
+    const { blob, skipped } = await buildTrackedDocx(upload.doc, edits);
+    save(blob, upload.name.replace(/\.docx$/i, "") + " (SpecCheck).docx");
+    const missed = new Set([...skipped, ...unmapped]);
+    const refs = clauses.filter((c) => missed.has(c.block) && c.final !== c.text).map((c) => c.label || `#${c.id}`);
+    note.dataset.kind = refs.length ? "error" : "";
+    note.textContent = refs.length
+      ? `${refs.length} change${refs.length === 1 ? " isn't" : "s aren't"} in the document because the paragraph has links, fields or existing tracked changes. Make ${refs.length === 1 ? "it" : "them"} by hand in Word: ${refs.join(", ")}.`
+      : "";
+    const tracked = clauses.filter((c) => c.final !== c.text).length - refs.length;
+    toast(`Downloaded with ${tracked} rewrite${tracked === 1 ? "" : "s"} as tracked changes`);
+  } catch (err) {
+    console.error(err);
+    toast("Couldn't build the Word document. Try Download .txt instead.");
+  }
+}
+
+function save(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function copy(text, message) {
