@@ -2,7 +2,7 @@
 
 **Decision: ship the `strict` prompt** (`ACTIVE_PROMPT = "strict"` in `src/prompts.js`). No tags are suppressed.
 
-**Update, 2026-09-25: the app now checks in hybrid mode** (`CHECK_MODE = "hybrid"` in `src/checker.js`). Jev decides four of the tags and the LLM writes the text. It met both success criteria; see [Hybrid (Jev + LLM)](#hybrid-jev--llm). `strict` is still the prompt for `CHECK_MODE = "llm"`.
+**Update, 2026-09-25: the app now checks in hybrid mode** (`CHECK_MODE = "hybrid"` in `src/checker.js`). Jev decides four of the tags and the LLM writes the text. It met both success criteria against the single-call `strict` it replaced. Against #4's batched `strict` it is about even on speed and more accurate; see [Hybrid (Jev + LLM)](#hybrid-jev--llm). `strict` is still the prompt for `CHECK_MODE = "llm"`.
 
 ## Setup
 
@@ -86,6 +86,22 @@ Per tag (`hybrid`, 3 runs):
 | Compound | 0.88 | 0.65 | 0.75 |
 
 The confirming 3-run results are in `results/2026-09-25T07-22-41-hybrid-deepseek-v4-flash.json`.
+
+### Against batched `strict` (#4)
+
+#4 changed llm mode to check parallel slices of 8 clauses. Run after the merge, 3 runs (`results/2026-09-25T07-51-43-deepseek-v4-flash.json`):
+
+| | `strict`, batched | `hybrid` |
+|---|---|---|
+| Clause recall | 90% | **100%** |
+| Clause precision | 96% | **100%** |
+| False alarms on 20 valid clauses | 0.7 per run (#11, "Severity 1" called Vague) | **0** |
+| Avg time | **69.4 s** (96.5, 88.7, 23.1) | 78.6 s (51.2, 132.8, 51.7) |
+| Median time | 88.7 s | **51.7 s** |
+
+- **Misses:** batched `strict` missed #29 (Vendor-locking) and #6 (one side of the audit-log conflict) in every run.
+- **Speed:** the two are about even. Batched `strict` is ahead on average and hybrid on the median, and both swing more between runs than they differ from each other. The runs weren't interleaved, so time-of-day load on OpenCode Go may account for some of the difference.
+- **What hybrid now buys:** accuracy, not speed. It also sends clean clauses to the LLM only once (in the conflict call), instead of asking the model to review them.
 
 ### Latency in the app
 
