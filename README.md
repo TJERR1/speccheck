@@ -12,7 +12,7 @@ SpecCheck checks draft requirements from tenders and statements of work before t
 
 Each flagged clause comes with a plain-English reason and a suggested rewrite. You can accept or edit each rewrite. **Copy All Cleaned** or **Download .txt** then gives you the whole cleaned spec, with your original numbering, to paste back into your draft.
 
-Do not paste classified, restricted or sensitive information. Pasted text is sent to the LLM provider for checking. SpecCheck itself stores nothing: no database, no browser storage, and the Worker never logs the pasted text.
+Do not paste classified, restricted or sensitive information. Pasted text is sent to two model providers for checking: OpenCode Go (the LLM) and TypeSafe (Jev). SpecCheck itself stores nothing: no database, no browser storage, and the Worker never logs the pasted text.
 
 ## Landing page
 
@@ -23,20 +23,31 @@ Do not paste classified, restricted or sensitive information. Pasted text is sen
 SpecCheck runs as a single Cloudflare Worker. The page in `public/` is served as static assets, and `POST /api/check` is handled by `src/index.js`:
 
 1. `src/splitter.js` splits the pasted text into clauses. A new clause starts at a blank line, a bullet or a numbered label (`1.`, `3.2.1`, `(a)`, `REQ-012:`). Wrapped lines are joined back together, and headings are dropped.
-2. `src/checker.js` sends all the clauses in **one** model call, so the model can see the whole list and spot Conflicting pairs. It then normalises the JSON reply.
-3. `src/llm.js` calls the OpenCode Go endpoint, which is OpenAI-compatible, with the model `deepseek-v4-flash`.
-4. `src/prompts.js` holds the two candidate system prompts (`baseline` and `strict`). `ACTIVE_PROMPT` sets which one ships, and `SUPPRESSED_TAGS` can hide a tag that raises too many false alarms.
+2. `src/checker.js` checks the clauses in one of two ways, set by `CHECK_MODE`:
+   - **`hybrid`** (the default, `src/hybrid.js`) runs one Jev call per clause (`src/jev.js`) in parallel with one LLM call over the whole list. Jev decides Vague, Untestable, Vendor-locking and Compound, and the LLM call finds Conflicting pairs. Then one small LLM call per flagged clause writes the explanations and the rewrite.
+   - **`llm`** sends all the clauses in one model call.
+3. `src/jev.js` calls Jev, TypeSafe's System One decision model, at `https://api.typesafe.ai/v1` (override with `JEV_AI_BASE_URL`). See `JEV_INTEGRATION.md`.
+4. `src/llm.js` calls the OpenCode Go endpoint, which is OpenAI-compatible, with the model `deepseek-v4-flash`.
+5. `src/prompts.js` holds the conflict and rewrite prompts for the hybrid checker, and the two candidate system prompts (`baseline` and `strict`). `ACTIVE_PROMPT` sets which one ships, and `SUPPRESSED_TAGS` can hide a tag that raises too many false alarms.
 
 ```mermaid
 sequenceDiagram
     participant Browser
     participant Worker
+    participant Jev as Jev (TypeSafe)
     participant LLM as LLM (OpenCode Go)
 
     Browser->>Worker: POST /api/check {text}
     Worker->>Worker: split into clauses
-    Worker->>LLM: system prompt + numbered clauses
-    LLM-->>Worker: JSON flags + rewrites per clause
+    par
+        Worker->>Jev: one decision call per clause
+        Jev-->>Worker: probability per tag
+    and
+        Worker->>LLM: numbered clauses (find conflicts)
+        LLM-->>Worker: conflicting pairs
+    end
+    Worker->>LLM: one rewrite call per flagged clause
+    LLM-->>Worker: explanations + rewrite
     Worker-->>Browser: {clauses}
 ```
 
@@ -46,7 +57,7 @@ sequenceDiagram
    ```sh
    npm install
    ```
-2. Create `.env` from `.env.example` and add your OpenCode Go key:
+2. Create `.env` from `.env.example` and add both keys, `OPENCODE_API_KEY` (OpenCode Go) and `JEV_AI_API_KEY` (TypeSafe):
    ```sh
    cp .env.example .env
    ```
@@ -55,9 +66,10 @@ sequenceDiagram
    npm run dev
    ```
    Open http://localhost:8788. The port is set in `wrangler.toml` so SpecCheck doesn't clash with other Workers on 8787.
-4. To deploy, set the secret on Cloudflare, then deploy:
+4. To deploy, set both secrets on Cloudflare, then deploy:
    ```sh
    npx wrangler secret put OPENCODE_API_KEY
+   npx wrangler secret put JEV_AI_API_KEY
    npm run deploy
    ```
 
@@ -69,7 +81,7 @@ Secrets never go in code or in `wrangler.toml`. `.env` is gitignored.
 npm test
 ```
 
-This runs the clause-splitter unit tests with Node's built-in test runner.
+This runs the unit tests with Node's built-in test runner. They mock `fetch`, so they make no network calls.
 
 ## Evaluation
 

@@ -1,4 +1,5 @@
 import { checkRequirements, UserError } from "./checker.js";
+import { JevError } from "./jev.js";
 
 const MAX_INPUT_CHARS = 30_000;
 
@@ -33,13 +34,18 @@ async function handleCheck(request, env) {
   }
 
   try {
-    const clauses = await checkRequirements(text, env.OPENCODE_API_KEY);
+    const clauses = await checkRequirements(
+      text,
+      { opencode: env.OPENCODE_API_KEY, jev: env.JEV_AI_API_KEY },
+      env.JEV_AI_BASE_URL ? { jevOptions: { baseUrl: env.JEV_AI_BASE_URL } } : {},
+    );
     return json({ clauses });
   } catch (err) {
     if (err instanceof UserError) return json({ error: err.message }, 400);
-    // Log the failure type only, never the pasted text.
-    console.error("check failed:", err.name, err.message.slice(0, 200));
-    const timedOut = err.name === "TimeoutError";
+    // Log the failure type only, never the pasted text or a key.
+    if (err instanceof JevError) console.error("check failed: JevError", err.status, err.code);
+    else console.error("check failed:", err.name, err.message.slice(0, 200));
+    const timedOut = err.name === "TimeoutError" || err.code === "timeout";
     return json(
       { error: timedOut ? "The check took too long. Try a shorter section." : "The checker is unavailable right now. Try again in a moment." },
       502,
