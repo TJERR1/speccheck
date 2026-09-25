@@ -12,6 +12,8 @@ SpecCheck checks draft requirements from tenders and statements of work before t
 
 Each flagged clause comes with a plain-English reason and a suggested rewrite. You can accept or edit each rewrite. **Copy All Cleaned** or **Download .txt** then gives you the whole cleaned spec, with your original numbering, to paste back into your draft.
 
+You can also **upload a Word document (.docx)** instead of pasting. Every paragraph, including table cells, is checked, and **Download .docx with tracked changes** gives you the same document back with each accepted rewrite or edit as a Word tracked change (author "SpecCheck"), so a reviewer can accept or reject each one in Word. Formatting, numbering, tables and everything else in the file are left as they were. A paragraph that holds a hyperlink, field, image or existing tracked change is left untouched, and the page lists those changes for you to make by hand.
+
 Do not paste classified, restricted or sensitive information. Pasted text is sent to the LLM provider for checking. SpecCheck itself stores nothing: no database, no browser storage, and the Worker never logs the pasted text.
 
 ## Landing page
@@ -22,10 +24,11 @@ Do not paste classified, restricted or sensitive information. Pasted text is sen
 
 SpecCheck runs as a single Cloudflare Worker. The page in `public/` is served as static assets, and `POST /api/check` is handled by `src/index.js`:
 
-1. `src/splitter.js` splits the pasted text into clauses. A new clause starts at a blank line, a bullet or a numbered label (`1.`, `3.2.1`, `(a)`, `REQ-012:`). Wrapped lines are joined back together, and headings are dropped.
-2. `src/checker.js` sends all the clauses in **one** model call, so the model can see the whole list and spot Conflicting pairs. It then normalises the JSON reply.
+1. `src/splitter.js` splits the pasted text into clauses. For a Word upload, `public/docx.js` reads the file **in the browser** and sends only its paragraph texts (`{ paragraphs }` instead of `{ text }`), so the document itself never reaches the Worker. Each paragraph is its own block, and each clause records which paragraph it came from. A new clause starts at a blank line, a bullet or a numbered label (`1.`, `3.2.1`, `(a)`, `REQ-012:`). Wrapped lines are joined back together, and headings are dropped.
+2. `src/checker.js` sends up to 8 clauses in one model call. Longer lists are split into slices of 8 that are checked in parallel, because a single call over 45 clauses took over two minutes. Every call still sees the whole list, so the model can spot Conflicting pairs across slices, but it only reviews the clauses in its own slice. It then merges and normalises the JSON replies.
 3. `src/llm.js` calls the OpenCode Go endpoint, which is OpenAI-compatible, with the model `deepseek-v4-flash`.
-4. `src/prompts.js` holds the two candidate system prompts (`baseline` and `strict`). `ACTIVE_PROMPT` sets which one ships, and `SUPPRESSED_TAGS` can hide a tag that raises too many false alarms.
+4. `public/docx.js` also writes the tracked changes: a word-level diff of each changed paragraph becomes `w:del`/`w:ins` runs that keep the original run formatting. Only `word/document.xml` is rewritten; every other part of the package is copied byte for byte. It uses the browser's built-in `CompressionStream`, so there are no extra dependencies.
+5. `src/prompts.js` holds the two candidate system prompts (`baseline` and `strict`). `ACTIVE_PROMPT` sets which one ships, and `SUPPRESSED_TAGS` can hide a tag that raises too many false alarms.
 
 ```mermaid
 sequenceDiagram
@@ -33,10 +36,12 @@ sequenceDiagram
     participant Worker
     participant LLM as LLM (OpenCode Go)
 
-    Browser->>Worker: POST /api/check {text}
+    Browser->>Worker: POST /api/check {text} or {paragraphs}
     Worker->>Worker: split into clauses
-    Worker->>LLM: system prompt + numbered clauses
-    LLM-->>Worker: JSON flags + rewrites per clause
+    par one call per slice of 8 clauses
+        Worker->>LLM: system prompt + all clauses + slice to review
+        LLM-->>Worker: JSON flags + rewrites for the slice
+    end
     Worker-->>Browser: {clauses}
 ```
 
@@ -69,7 +74,7 @@ Secrets never go in code or in `wrangler.toml`. `.env` is gitignored.
 npm test
 ```
 
-This runs the clause-splitter unit tests with Node's built-in test runner.
+This runs the unit tests with Node's built-in test runner: the clause splitter, the API input checks, and the Word reader and tracked-changes writer. The Word tests use `test/fixtures/sample.docx`, which was saved by Word and has typed and automatic numbering, bold text, a hyperlink and a table. They check that accepting all changes gives the new text and rejecting them gives back the original.
 
 ## Evaluation
 

@@ -1,12 +1,15 @@
-import { splitClauses } from "./splitter.js";
+import { splitClauses, splitParagraphs } from "./splitter.js";
 import { callModelJson } from "./llm.js";
-import { PROMPTS, ACTIVE_PROMPT, SUPPRESSED_TAGS, TAGS, buildUserMessage } from "./prompts.js";
+import { PROMPTS, ACTIVE_PROMPT, SUPPRESSED_TAGS, TAGS, buildUserMessage, buildBatchMessage } from "./prompts.js";
 
 export const MAX_CLAUSES = 60;
+// Longer lists are reviewed in parallel slices of this size. One call over 45
+// clauses took ~144 s; slices of 8 took 31-63 s and found the same conflicts.
+export const BATCH_SIZE = 8;
 
 /**
- * Split text into clauses and check them all in one model call, so the model
- * sees the whole list and can spot Conflicting pairs.
+ * Split text into clauses and check them. Every model call sees the whole list,
+ * so it can spot Conflicting pairs even when the review is split into slices.
  */
 export async function checkRequirements(text, apiKey, options = {}) {
   const clauses = splitClauses(text);
@@ -16,19 +19,48 @@ export async function checkRequirements(text, apiKey, options = {}) {
   return checkClauses(clauses, apiKey, options);
 }
 
-export async function checkClauses(clauses, apiKey, { prompt = ACTIVE_PROMPT, model, timeoutMs, suppressedTags = SUPPRESSED_TAGS } = {}) {
+/** Same as checkRequirements, for the paragraphs of an uploaded Word document. */
+export async function checkParagraphs(paragraphs, apiKey, options = {}) {
+  const clauses = splitParagraphs(paragraphs);
+  if (clauses.length > MAX_CLAUSES) {
+    throw new UserError(
+      `That document has ${clauses.length} clauses. Upload at most ${MAX_CLAUSES} at a time, e.g. just the requirements section.`,
+    );
+  }
+  return checkClauses(clauses, apiKey, options);
+}
+
+export async function checkClauses(
+  clauses,
+  apiKey,
+  { prompt = ACTIVE_PROMPT, model, timeoutMs, suppressedTags = SUPPRESSED_TAGS, batchSize = BATCH_SIZE } = {},
+) {
   if (clauses.length === 0) return [];
 
-  const reply = await callModelJson(
-    [
-      { role: "system", content: PROMPTS[prompt] },
-      { role: "user", content: buildUserMessage(clauses) },
-    ],
-    apiKey,
-    { model, timeoutMs },
+  const batches = [];
+  for (let i = 0; i < clauses.length; i += batchSize) batches.push(clauses.slice(i, i + batchSize));
+
+  const replies = await Promise.all(
+    batches.map((batch) =>
+      callModelJson(
+        [
+          { role: "system", content: PROMPTS[prompt] },
+          { role: "user", content: batches.length === 1 ? buildUserMessage(clauses) : buildBatchMessage(clauses, batch) },
+        ],
+        apiKey,
+        { model, timeoutMs },
+      ),
+    ),
   );
 
-  const byId = new Map((Array.isArray(reply.results) ? reply.results : []).map((r) => [Number(r.id), r]));
+  // Keep only the ids each slice was asked about, in case a reply strays.
+  const byId = new Map();
+  replies.forEach((reply, i) => {
+    const wanted = new Set(batches[i].map((c) => c.id));
+    for (const r of Array.isArray(reply.results) ? reply.results : []) {
+      if (wanted.has(Number(r.id))) byId.set(Number(r.id), r);
+    }
+  });
 
   return clauses.map((clause) => {
     const result = byId.get(clause.id) ?? {};
