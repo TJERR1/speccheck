@@ -1,4 +1,4 @@
-import { checkRequirements, UserError } from "./checker.js";
+import { checkRequirements, checkParagraphs, UserError } from "./checker.js";
 import { JevError } from "./jev.js";
 
 const MAX_INPUT_CHARS = 30_000;
@@ -25,20 +25,25 @@ async function handleCheck(request, env) {
     return json({ error: "Body must be JSON." }, 400);
   }
 
-  const text = typeof body.text === "string" ? body.text : "";
+  // A Word upload is parsed in the browser and arrives as its paragraph texts;
+  // the document itself never reaches the Worker.
+  const paragraphs = Array.isArray(body.paragraphs) ? body.paragraphs : null;
+  if (paragraphs && !paragraphs.every((p) => typeof p === "string")) {
+    return json({ error: "paragraphs must be an array of strings." }, 400);
+  }
+  const text = paragraphs ? paragraphs.join("\n") : typeof body.text === "string" ? body.text : "";
   if (text.trim() === "") {
-    return json({ error: "Paste some requirements first." }, 400);
+    return json({ error: paragraphs ? "That document has no text to check." : "Paste some requirements first." }, 400);
   }
   if (text.length > MAX_INPUT_CHARS) {
-    return json({ error: `That's too long. Paste at most ${MAX_INPUT_CHARS.toLocaleString()} characters at a time.` }, 400);
+    const what = paragraphs ? "That document is too long. Upload at most" : "That's too long. Paste at most";
+    return json({ error: `${what} ${MAX_INPUT_CHARS.toLocaleString()} characters at a time.` }, 400);
   }
 
   try {
-    const clauses = await checkRequirements(
-      text,
-      { opencode: env.OPENCODE_API_KEY, jev: env.JEV_AI_API_KEY },
-      env.JEV_AI_BASE_URL ? { jevOptions: { baseUrl: env.JEV_AI_BASE_URL } } : {},
-    );
+    const keys = { opencode: env.OPENCODE_API_KEY, jev: env.JEV_AI_API_KEY };
+    const options = env.JEV_AI_BASE_URL ? { jevOptions: { baseUrl: env.JEV_AI_BASE_URL } } : {};
+    const clauses = paragraphs ? await checkParagraphs(paragraphs, keys, options) : await checkRequirements(text, keys, options);
     return json({ clauses });
   } catch (err) {
     if (err instanceof UserError) return json({ error: err.message }, 400);

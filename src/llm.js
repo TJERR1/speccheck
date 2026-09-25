@@ -3,7 +3,9 @@
 
 export const LLM_BASE_URL = "https://opencode.ai/zen/go/v1";
 export const LLM_MODEL = "deepseek-v4-flash";
-const LLM_TIMEOUT_MS = 60_000;
+// The endpoint's latency varies a lot (3-63 s for the same size of request), so leave
+// headroom. Workers limit CPU time, not time spent waiting on fetch.
+const LLM_TIMEOUT_MS = 120_000;
 
 /**
  * Send messages to the model and return the parsed JSON object it replies with.

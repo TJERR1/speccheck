@@ -56,6 +56,14 @@ export function buildUserMessage(clauses) {
   return `Clauses to review:\n${lines}`;
 }
 
+// One slice of a long document. The model sees every clause, so it can still
+// spot Conflicting pairs, but only reviews and returns the clauses in `batch`.
+export function buildBatchMessage(allClauses, batch) {
+  const lines = allClauses.map((c) => `${c.id}. ${c.text}`).join("\n");
+  const ids = batch.map((c) => c.id);
+  return `All clauses in the document, for context (e.g. to spot Conflicting pairs):\n${lines}\n\nReview ONLY clauses ${ids[0]}-${ids.at(-1)}. Return results for exactly those ids.`;
+}
+
 export const CONFLICT_PROMPT = `${REVIEWER} checking draft requirement clauses from a tender specification or statement of work, before the draft goes to review.
 
 Find pairs of clauses that are Conflicting: a clause ${TAG_DEFINITIONS.Conflicting}

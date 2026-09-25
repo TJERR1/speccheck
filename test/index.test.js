@@ -104,3 +104,48 @@ test("a Jev timeout gives the took-too-long message", async () => {
   assert.equal(res.status, 502);
   assert.deepEqual(await res.json(), { error: "The check took too long. Try a shorter section." });
 });
+
+test("Word paragraphs go through hybrid mode and keep their paragraph index", async () => {
+  globalThis.fetch = async (url, init) => {
+    if (url.endsWith("/systemone")) {
+      const robust = JSON.parse(init.body).state.includes("robust");
+      return new Response(JSON.stringify({ answers: { vague: { type: "noul", noul: robust ? 0.9 : 0.1 } }, usage: {} }), { status: 200 });
+    }
+    const system = JSON.parse(init.body).messages[0].content;
+    if (system.includes('"conflicts"')) return llmReply({ conflicts: [] });
+    return llmReply({ flags: [{ tag: "Vague", explanation: "'robust' is undefined." }], rewrite: "The system shall [target]." });
+  };
+  const res = await worker.fetch(
+    new Request("http://localhost/api/check", {
+      method: "POST",
+      body: JSON.stringify({ paragraphs: ["Requirements", "1. The system shall be robust.", "", "2. The system shall export CSV files."] }),
+    }),
+    ENV,
+  );
+  assert.equal(res.status, 200);
+  const { clauses } = await res.json();
+  assert.deepEqual(clauses.map((c) => [c.block, c.flags.map((f) => f.tag)]), [[1, ["Vague"]], [3, []]]);
+});
+
+// Requests that never reach the model, so no API key is needed.
+const check = (body) =>
+  worker.fetch(new Request("http://localhost/api/check", { method: "POST", body: JSON.stringify(body) }), {});
+
+test("accepts the paragraphs of a Word document", async () => {
+  const res = await check({ paragraphs: ["Functional Requirements", "", "REQ-01"] });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { clauses: [] });
+});
+
+test("rejects paragraphs that aren't strings, and empty documents", async () => {
+  assert.equal((await check({ paragraphs: ["ok", 3] })).status, 400);
+  const res = await check({ paragraphs: ["", "  "] });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, "That document has no text to check.");
+});
+
+test("still rejects empty pasted text", async () => {
+  const res = await check({ text: "  " });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, "Paste some requirements first.");
+});
