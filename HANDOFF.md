@@ -91,7 +91,7 @@ Paste a deliberately bad spec live, watch it light up, then accept rewrites one 
 - [ ] Run the **grill-me** skill with the outcome metric + riskiest assumption as input; finish the interview before planning
 - [x] Scaffold + one complete vertical slice with a real LLM call — Cloudflare Worker + static page, `kimi-k3` via OpenCode Go; paste → split → check → results table → accept/edit → Copy All Cleaned, verified in the browser
 - [ ] Build and run the eval; make one decision from it — *partial: 40-item dataset (`eval/dataset.json`) and runner (`npm run eval`) built; no results yet, because every 40-clause kimi-k3 run hit the 60s limit. `strict` prompt ships for now without eval evidence*
-- [ ] `/design` a few options, pick one and revise; `/design` an app icon + logo; share name, icon, logo on Padlet
+- [x] `/design` a few options, pick one and revise; `/design` an app icon + logo; share name, icon, logo on Padlet — _picked the "Redline" direction over Inspection sheet and Linter console, and applied it to the app; icon and logo in `public/brand/`; brand board with a ready-to-paste Padlet post: https://claude.ai/artifact/SuJWBBjunqD2GGDF9faFJP (post to Padlet by hand)_
 - [ ] Watch Product Thinking 6 (customer experience); polish first screen, instructions, loading and error states — *partial: loading timer, error messages and privacy notice are in*
 - [ ] Public landing page (frontend-design skill or Claude Design) with the icon
 

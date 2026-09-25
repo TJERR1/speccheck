@@ -1,12 +1,16 @@
 :root {
-  --bg: #f6f7f9;
+  --bg: #f7f8fa;
   --surface: #ffffff;
-  --text: #1b2330;
-  --muted: #5b6574;
-  --border: #dde1e7;
-  --primary: #1f5eff;
+  --text: #16203a;
+  --muted: #5a6478;
+  --border: #d9dde5;
+  --primary: #16203a;
   --primary-text: #ffffff;
-  --primary-hover: #1848c7;
+  --primary-hover: #2a3656;
+  --redline: #d23b3f;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
   --notice-bg: #fff5e0;
   --notice-border: #e8b04b;
   --flag-bg: #fff8f6;
@@ -23,14 +27,15 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #12161d;
-    --surface: #1a2029;
-    --text: #e6e9ee;
-    --muted: #9aa4b2;
-    --border: #2d3542;
-    --primary: #5b8cff;
-    --primary-text: #0b1020;
-    --primary-hover: #82a6ff;
+    --bg: #10151f;
+    --surface: #171e2b;
+    --text: #e7eaf0;
+    --muted: #9aa4b5;
+    --border: #2b3445;
+    --primary: #e7eaf0;
+    --primary-text: #10151f;
+    --primary-hover: #c3cad6;
+    --redline: #ff6b5e;
     --notice-bg: #2e2513;
     --notice-border: #a57a2c;
     --flag-bg: #221c1c;
@@ -52,18 +57,15 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 16px/1.5 var(--sans);
 }
 
 .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
 
 .site-header { padding: 28px 0 8px; }
-.brand { margin: 0; font-size: 1.6rem; display: flex; align-items: center; gap: 10px; }
-.brand-mark {
-  display: inline-grid; place-items: center;
-  width: 34px; height: 34px; border-radius: 8px;
-  background: var(--primary); color: var(--primary-text); font-size: 1.1rem;
-}
+.brand { margin: 0; font-size: 1.75rem; font-weight: 400; letter-spacing: -0.02em; display: flex; align-items: center; gap: 12px; }
+.brand b { font-weight: 600; }
+.brand-mark { width: 40px; height: 40px; flex: none; }
 .tagline { margin: 4px 0 0; color: var(--muted); }
 
 .notice {
@@ -83,12 +85,12 @@ body {
   margin-bottom: 20px;
 }
 
-.panel-title { display: block; margin: 0; font-size: 1.15rem; font-weight: 650; }
+.panel-title { display: block; margin: 0; font-size: 1.15rem; font-weight: 600; }
 .hint { color: var(--muted); font-size: 0.9rem; margin: 6px 0 12px; }
 
 textarea {
   width: 100%;
-  font: 0.95rem/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font: 1rem/1.55 var(--serif);
   color: var(--text);
   background: var(--bg);
   border: 1px solid var(--border);
@@ -96,16 +98,16 @@ textarea {
   padding: 12px;
   resize: vertical;
 }
-textarea:focus-visible, button:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+textarea:focus-visible, button:focus-visible { outline: 2px solid var(--redline); outline-offset: 2px; }
 
 .input-actions { display: flex; align-items: center; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
 .status { font-size: 0.95rem; color: var(--muted); }
 .status[data-kind="error"] { color: var(--error); }
 
 .btn {
-  font: inherit; font-weight: 600;
+  font: inherit; font-weight: 500;
   padding: 10px 18px;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -129,7 +131,7 @@ textarea:focus-visible, button:focus-visible { outline: 3px solid var(--primary)
   color: var(--muted); padding: 8px; border-bottom: 1px solid var(--border);
 }
 .results-table td { padding: 10px 8px; vertical-align: top; border-bottom: 1px solid var(--border); }
-.col-num { width: 3.5rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.col-num { width: 3.5rem; color: var(--muted); font: 500 0.82rem/1.9 var(--mono); font-variant-numeric: tabular-nums; }
 .col-issues { width: 14rem; }
 
 .clause-row.is-flagged { background: var(--flag-bg); }
@@ -139,10 +141,14 @@ textarea:focus-visible, button:focus-visible { outline: 3px solid var(--primary)
 .row-toggle {
   all: unset; display: block; width: 100%; cursor: pointer; border-radius: 4px;
 }
-.row-toggle:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.row-toggle:focus-visible { outline: 2px solid var(--redline); outline-offset: 2px; }
 .is-flagged .row-toggle::after { content: " ▸"; color: var(--muted); }
 .is-flagged.is-open .row-toggle::after { content: " ▾"; }
-.clause-text { white-space: pre-line; }
+.clause-text { white-space: pre-line; font: 1.02rem/1.55 var(--serif); }
+.is-flagged:not(.is-resolved) .clause-text {
+  text-decoration: underline wavy var(--redline); text-decoration-thickness: 1px;
+  text-underline-offset: 4px; text-decoration-skip-ink: none;
+}
 
 .row-state { display: block; font-size: 0.8rem; font-weight: 600; color: var(--clean); margin-top: 4px; }
 .row-state[hidden] { display: none; }
@@ -150,7 +156,7 @@ textarea:focus-visible, button:focus-visible { outline: 3px solid var(--primary)
 
 .tag {
   display: inline-block; margin: 0 4px 4px 0; padding: 1px 8px;
-  border-radius: 999px; font-size: 0.78rem; font-weight: 650; white-space: nowrap;
+  border-radius: 3px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
 }
 .tag-vague { color: var(--vague); background: var(--vague-bg); }
 .tag-untestable { color: var(--untestable); background: var(--untestable-bg); }
@@ -162,11 +168,12 @@ textarea:focus-visible, button:focus-visible { outline: 3px solid var(--primary)
 .detail-row td { padding-top: 0; }
 .detail { padding: 4px 0 8px; }
 .explanations { list-style: none; padding: 0; margin: 0 0 12px; }
-.explanations li { margin-bottom: 6px; }
-.detail-label { font-size: 0.8rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.explanations li { margin-bottom: 6px; font-family: var(--serif); font-style: italic; color: var(--muted); }
+.explanations li .tag { font-family: var(--sans); font-style: normal; }
+.detail-label { font: 500 0.72rem var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .rewrite-text {
-  margin: 4px 0 10px; padding: 10px 12px; white-space: pre-line;
-  background: var(--bg); border: 1px dashed var(--border); border-radius: 8px;
+  margin: 4px 0 10px; padding: 10px 12px; white-space: pre-line; font-family: var(--serif);
+  background: var(--bg); border: 1px dashed var(--border); border-radius: 6px;
 }
 .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 
