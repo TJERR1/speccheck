@@ -89,17 +89,17 @@ Paste a deliberately bad spec live, watch it light up, then accept rewrites one 
 
 - [ ] Product thinking: watch Product Thinking 4 (metrics) and 5 (assumptions and risks)
 - [ ] Run the **grill-me** skill with the outcome metric + riskiest assumption as input; finish the interview before planning
-- [ ] Scaffold + one complete vertical slice with a real LLM call
-- [ ] Build and run the eval; make one decision from it
+- [x] Scaffold + one complete vertical slice with a real LLM call — Cloudflare Worker + static page, `kimi-k3` via OpenCode Go; paste → split → check → results table → accept/edit → Copy All Cleaned, verified in the browser
+- [ ] Build and run the eval; make one decision from it — *partial: 40-item dataset (`eval/dataset.json`) and runner (`npm run eval`) built; no results yet, because every 40-clause kimi-k3 run hit the 60s limit. `strict` prompt ships for now without eval evidence*
 - [ ] `/design` a few options, pick one and revise; `/design` an app icon + logo; share name, icon, logo on Padlet
-- [ ] Watch Product Thinking 6 (customer experience); polish first screen, instructions, loading and error states
+- [ ] Watch Product Thinking 6 (customer experience); polish first screen, instructions, loading and error states — *partial: loading timer, error messages and privacy notice are in*
 - [ ] Public landing page (frontend-design skill or Claude Design) with the icon
 
 ## Submission checklist
 
 - [ ] Public landing page: app name, team, problem statement, target user, outcome metric, riskiest assumption, evidence
-- [ ] Working app: deployed link, or a screenshot if it runs locally
-- [ ] Source repo with a short README on how to run it. **Check that no API keys or secrets are committed** (use `.env`, gitignored)
+- [ ] Working app: deployed link, or a screenshot if it runs locally — *partial: runs locally (`npm run dev`, port 8788); screenshots exist only in gitignored `.playwright-mcp/`*
+- [ ] Source repo with a short README on how to run it. **Check that no API keys or secrets are committed** (use `.env`, gitignored) — *partial: no README yet; nothing committed; `.env` and `*-key.txt` are gitignored*
 - [ ] Extra-knowledge build: link, what it enabled, evidence it worked, one limitation or failed attempt
 - [ ] Visuals: icon, logo, at least one product screenshot
 
