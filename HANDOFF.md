@@ -93,11 +93,11 @@ Paste a deliberately bad spec live, watch it light up, then accept rewrites one 
 - [x] Build and run the eval; make one decision from it — **decision: ship the `strict` prompt**. On `deepseek-v4-flash` (3 runs each), both prompts reached 95% recall and 100% precision, with 0 false alarms. `strict` assigned tags more accurately, and `baseline` timed out once. Limitations: the dataset is too clean to separate the prompts on precision, and 40-clause checks take 52–260s, longer than the app's 60s timeout. See `eval/RESULTS.md`
 - [x] `/design` a few options, pick one and revise; `/design` an app icon + logo; share name, icon, logo on Padlet — _picked the "Redline" direction over Inspection sheet and Linter console, and applied it to the app; icon and logo in `public/brand/`; brand board with a ready-to-paste Padlet post: https://claude.ai/artifact/SuJWBBjunqD2GGDF9faFJP (post to Padlet by hand)_
 - [ ] Watch Product Thinking 6 (customer experience); polish first screen, instructions, loading and error states — _partial: loading timer, error messages and privacy notice are in_
-- [x] Public landing page (frontend-design skill or Claude Design) with the icon — _`public/landing.html`, served at `/landing`, uses `public/brand/icon.svg`_
+- [x] Public landing page (frontend-design skill or Claude Design) with the icon — _`public/index.html`, served at `/`, uses `public/brand/icon.svg`_
 
 ## Submission checklist
 
-- [x] Public landing page: app name, team, problem statement, target user, outcome metric, riskiest assumption, evidence — _`public/landing.html`; team is Jerry and Chee Howe_
+- [x] Public landing page: app name, team, problem statement, target user, outcome metric, riskiest assumption, evidence — _`public/index.html`; team is Jerry and Chee Howe_
 - [x] Working app: deployed link, or a screenshot if it runs locally — _runs locally (`npm run dev`, port 8788); screenshot committed at `public/assets/screenshot.png`_
 - [x] Source repo with a short README on how to run it. **Check that no API keys or secrets are committed** (use `.env`, gitignored) — _`README.md` covers setup, tests and eval; checked git history: only `.env.example` is tracked, no keys; `.env` and `*-key.txt` are gitignored_
 - [x] Extra-knowledge build: link, what it enabled, evidence it worked, one limitation or failed attempt — _eval write-up in `eval/RESULTS.md` and the landing page's Evidence section: it picked the shipped prompt and model; the failed first attempt was the 60s timeout_

@@ -16,7 +16,7 @@ Do not paste classified, restricted or sensitive information. Pasted text is sen
 
 ## Landing page
 
-`public/landing.html` is the public landing page (served at `/landing`): problem statement, target user, outcome metric, riskiest assumption and eval evidence. It uses the brand icon and logos in `public/brand/`, and the product screenshot in `public/assets/`.
+`public/index.html` is the public landing page (served at `/`; the app itself is `public/app.html` at `/app`): problem statement, target user, outcome metric, riskiest assumption and eval evidence. It uses the brand icon and logos in `public/brand/`, and the product screenshot in `public/assets/`.
 
 ## Architecture
 
