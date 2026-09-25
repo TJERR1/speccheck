@@ -1,0 +1,5 @@
+.env
+.env.*
+*-key.txt
+.playwright-mcp/
+node_modules/
