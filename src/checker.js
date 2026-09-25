@@ -1,5 +1,6 @@
 import { splitClauses, splitParagraphs } from "./splitter.js";
 import { callModelJson } from "./llm.js";
+import { checkClausesHybrid } from "./hybrid.js";
 import { PROMPTS, ACTIVE_PROMPT, SUPPRESSED_TAGS, TAGS, buildUserMessage, buildBatchMessage } from "./prompts.js";
 
 export const MAX_CLAUSES = 60;
@@ -7,29 +8,41 @@ export const MAX_CLAUSES = 60;
 // clauses took ~144 s; slices of 8 took 31-63 s and found the same conflicts.
 export const BATCH_SIZE = 8;
 
+// "hybrid": Jev decides tags, the LLM writes rewrites (src/hybrid.js).
+// "llm": model calls do everything, in parallel slices (checkClauses below).
+export const CHECK_MODE = "hybrid";
+
 /**
- * Split text into clauses and check them. Every model call sees the whole list,
- * so it can spot Conflicting pairs even when the review is split into slices.
+ * Split text into clauses and check them.
+ * @param {{opencode: string, jev: string}} keys
  */
-export async function checkRequirements(text, apiKey, options = {}) {
+export async function checkRequirements(text, keys, options = {}) {
   const clauses = splitClauses(text);
   if (clauses.length > MAX_CLAUSES) {
     throw new UserError(`That's ${clauses.length} clauses. Paste at most ${MAX_CLAUSES} at a time.`);
   }
-  return checkClauses(clauses, apiKey, options);
+  return checkWithMode(clauses, keys, options);
 }
 
 /** Same as checkRequirements, for the paragraphs of an uploaded Word document. */
-export async function checkParagraphs(paragraphs, apiKey, options = {}) {
+export async function checkParagraphs(paragraphs, keys, options = {}) {
   const clauses = splitParagraphs(paragraphs);
   if (clauses.length > MAX_CLAUSES) {
     throw new UserError(
       `That document has ${clauses.length} clauses. Upload at most ${MAX_CLAUSES} at a time, e.g. just the requirements section.`,
     );
   }
-  return checkClauses(clauses, apiKey, options);
+  return checkWithMode(clauses, keys, options);
 }
 
+function checkWithMode(clauses, keys, { mode = CHECK_MODE, ...options }) {
+  return mode === "hybrid" ? checkClausesHybrid(clauses, keys, options) : checkClauses(clauses, keys.opencode, options);
+}
+
+/**
+ * Check clauses with the LLM alone. Every model call sees the whole list, so it can
+ * spot Conflicting pairs even when the review is split into slices.
+ */
 export async function checkClauses(
   clauses,
   apiKey,

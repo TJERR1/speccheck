@@ -6,8 +6,9 @@ compatibility_date = "2025-08-01"
 [assets]
 directory = "./public"
 
-# OPENCODE_API_KEY is set with `wrangler secret put` for deploys and read
-# from `.env` for local development. Never put it in this file.
+# OPENCODE_API_KEY (LLM) and JEV_AI_API_KEY (Jev) are set with
+# `wrangler secret put` for deploys and read from `.env` for local
+# development. Never put them in this file.
 
 [dev]
 port = 8788

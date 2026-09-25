@@ -30,7 +30,8 @@ export async function callModelJson(messages, apiKey, { model = LLM_MODEL, timeo
   });
 
   if (!res.ok) {
-    throw new Error(`LLM returned ${res.status}: ${await res.text()}`);
+    // The body can echo the prompt, so callers that log should log `status`, not the message.
+    throw Object.assign(new Error(`LLM returned ${res.status}: ${await res.text()}`), { status: res.status });
   }
 
   const data = await res.json();

@@ -14,7 +14,7 @@ Each flagged clause comes with a plain-English reason and a suggested rewrite. Y
 
 You can also **upload a Word document (.docx)** instead of pasting. Every paragraph, including table cells, is checked, and **Download .docx with tracked changes** gives you the same document back with each accepted rewrite or edit as a Word tracked change (author "SpecCheck"), so a reviewer can accept or reject each one in Word. Formatting, numbering, tables and everything else in the file are left as they were. A paragraph that holds a hyperlink, field, image or existing tracked change is left untouched, and the page lists those changes for you to make by hand.
 
-Do not paste classified, restricted or sensitive information. Pasted text is sent to the LLM provider for checking. SpecCheck itself stores nothing: no database, no browser storage, and the Worker never logs the pasted text.
+Do not paste classified, restricted or sensitive information. Pasted text is sent to two model providers for checking: OpenCode Go (the LLM) and TypeSafe (Jev). SpecCheck itself stores nothing: no database, no browser storage, and the Worker never logs the pasted text.
 
 ## Landing page
 
@@ -25,23 +25,35 @@ Do not paste classified, restricted or sensitive information. Pasted text is sen
 SpecCheck runs as a single Cloudflare Worker. The page in `public/` is served as static assets, and `POST /api/check` is handled by `src/index.js`:
 
 1. `src/splitter.js` splits the pasted text into clauses. For a Word upload, `public/docx.js` reads the file **in the browser** and sends only its paragraph texts (`{ paragraphs }` instead of `{ text }`), so the document itself never reaches the Worker. Each paragraph is its own block, and each clause records which paragraph it came from. A new clause starts at a blank line, a bullet or a numbered label (`1.`, `3.2.1`, `(a)`, `REQ-012:`). Wrapped lines are joined back together, and headings are dropped.
-2. `src/checker.js` sends up to 8 clauses in one model call. Longer lists are split into slices of 8 that are checked in parallel, because a single call over 45 clauses took over two minutes. Every call still sees the whole list, so the model can spot Conflicting pairs across slices, but it only reviews the clauses in its own slice. It then merges and normalises the JSON replies.
-3. `src/llm.js` calls the OpenCode Go endpoint, which is OpenAI-compatible, with the model `deepseek-v4-flash`.
-4. `public/docx.js` also writes the tracked changes: a word-level diff of each changed paragraph becomes `w:del`/`w:ins` runs that keep the original run formatting. Only `word/document.xml` is rewritten; every other part of the package is copied byte for byte. It uses the browser's built-in `CompressionStream`, so there are no extra dependencies.
-5. `src/prompts.js` holds the two candidate system prompts (`baseline` and `strict`). `ACTIVE_PROMPT` sets which one ships, and `SUPPRESSED_TAGS` can hide a tag that raises too many false alarms.
+2. `src/checker.js` checks the clauses (pasted or uploaded) in one of two ways, set by `CHECK_MODE`:
+   - **`hybrid`** (the default, `src/hybrid.js`) runs one Jev call per clause (`src/jev.js`) in parallel with one LLM call over the whole list. Jev decides Vague, Untestable, Vendor-locking and Compound, and the LLM call finds Conflicting pairs. Then one small LLM call per flagged clause writes the explanations and the rewrite.
+   - **`llm`** sends up to 8 clauses in one model call. Longer lists are split into slices of 8 that are checked in parallel, because a single call over 45 clauses took over two minutes. Every call still sees the whole list, so the model can spot Conflicting pairs across slices, but it only reviews the clauses in its own slice.
+
+   A hybrid check of N clauses makes up to 2N + 1 outbound requests (N Jev calls, 1 conflict call, and 1 rewrite per flagged clause). The Workers Free plan allows 50 per request, so long pastes need the Workers Paid plan (1,000). Workers also keep at most 6 connections open at once, so the calls queue in batches of 6.
+3. `src/jev.js` calls Jev, TypeSafe's System One decision model, at `https://api.typesafe.ai/v1` (override with `JEV_AI_BASE_URL`). See `JEV_INTEGRATION.md`.
+4. `src/llm.js` calls the OpenCode Go endpoint, which is OpenAI-compatible, with the model `deepseek-v4-flash`.
+5. `src/prompts.js` holds the conflict and rewrite prompts for the hybrid checker, and the two candidate system prompts (`baseline` and `strict`). `ACTIVE_PROMPT` sets which one ships, and `SUPPRESSED_TAGS` can hide a tag that raises too many false alarms.
+6. `public/docx.js` also writes the tracked changes: a word-level diff of each changed paragraph becomes `w:del`/`w:ins` runs that keep the original run formatting. Only `word/document.xml` is rewritten; every other part of the package is copied byte for byte. It uses the browser's built-in `CompressionStream`, so there are no extra dependencies.
 
 ```mermaid
 sequenceDiagram
     participant Browser
     participant Worker
+    participant Jev as Jev (TypeSafe)
     participant LLM as LLM (OpenCode Go)
 
     Browser->>Worker: POST /api/check {text} or {paragraphs}
     Worker->>Worker: split into clauses
-    par one call per slice of 8 clauses
-        Worker->>LLM: system prompt + all clauses + slice to review
-        LLM-->>Worker: JSON flags + rewrites for the slice
+    Note over Worker,LLM: CHECK_MODE = "hybrid" (default)
+    par
+        Worker->>Jev: one decision call per clause
+        Jev-->>Worker: probability per tag
+    and
+        Worker->>LLM: numbered clauses (find conflicts)
+        LLM-->>Worker: conflicting pairs
     end
+    Worker->>LLM: one rewrite call per flagged clause
+    LLM-->>Worker: explanations + rewrite
     Worker-->>Browser: {clauses}
 ```
 
@@ -51,7 +63,7 @@ sequenceDiagram
    ```sh
    npm install
    ```
-2. Create `.env` from `.env.example` and add your OpenCode Go key:
+2. Create `.env` from `.env.example` and add both keys, `OPENCODE_API_KEY` (OpenCode Go) and `JEV_AI_API_KEY` (TypeSafe):
    ```sh
    cp .env.example .env
    ```
@@ -60,9 +72,10 @@ sequenceDiagram
    npm run dev
    ```
    Open http://localhost:8788. The port is set in `wrangler.toml` so SpecCheck doesn't clash with other Workers on 8787.
-4. To deploy, set the secret on Cloudflare, then deploy:
+4. To deploy, set both secrets on Cloudflare, then deploy:
    ```sh
    npx wrangler secret put OPENCODE_API_KEY
+   npx wrangler secret put JEV_AI_API_KEY
    npm run deploy
    ```
 
@@ -74,7 +87,7 @@ Secrets never go in code or in `wrangler.toml`. `.env` is gitignored.
 npm test
 ```
 
-This runs the unit tests with Node's built-in test runner: the clause splitter, the API input checks, and the Word reader and tracked-changes writer. The Word tests use `test/fixtures/sample.docx`, which was saved by Word and has typed and automatic numbering, bold text, a hyperlink and a table. They check that accepting all changes gives the new text and rejecting them gives back the original.
+This runs the unit tests with Node's built-in test runner: the clause splitter, the Jev client and the hybrid checker, the API input checks, and the Word reader and tracked-changes writer. The model tests mock `fetch`, so they make no network calls. The Word tests use `test/fixtures/sample.docx`, which was saved by Word and has typed and automatic numbering, bold text, a hyperlink and a table. They check that accepting all changes gives the new text and rejecting them gives back the original.
 
 ## Evaluation
 
