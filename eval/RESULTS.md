@@ -2,6 +2,8 @@
 
 **Decision: ship the `strict` prompt** (`ACTIVE_PROMPT = "strict"` in `src/prompts.js`). No tags are suppressed.
 
+**Update, 2026-09-25: the app now checks in hybrid mode** (`CHECK_MODE = "hybrid"` in `src/checker.js`). Jev decides four of the tags and the LLM writes the text. It met both success criteria; see [Hybrid (Jev + LLM)](#hybrid-jev--llm). `strict` is still the prompt for `CHECK_MODE = "llm"`.
+
 ## Setup
 
 - Dataset: `eval/dataset.json`, 40 clauses, 20 valid and 20 flawed (4 per tag). All 40 are checked as one document, the same way the app checks them.
@@ -38,6 +40,70 @@ Every run missed exactly one flawed clause:
 1. **Both prompts pass the target and tie at clause level.** Neither raised a single false alarm on the 20 valid clauses, so the riskiest assumption (flags are nitpicks) was not borne out on this set.
 2. **`strict` labels the flaw correctly.** `baseline` often calls an untestable clause "Vague", and it never flagged both sides of the audit-log conflict. The tag decides which rewrite the user gets, so a wrong tag leads to a weaker fix.
 3. **`strict` completed every run.** `baseline` timed out once. Timing varied from 52s to 209s for the same input, though, so we don't claim either prompt is faster.
+
+## Hybrid (Jev + LLM)
+
+`npm run eval -- --mode hybrid` runs the same 40 clauses as one document.
+- **Jev:** `jev-1.13.0` (`JEV_TUNED_MODEL`), one call per clause with four yes/no questions.
+- **LLM:** `deepseek-v4-flash`, one conflict call over the whole list, then one rewrite call per flagged clause (at most 8 at once).
+- **Timeout:** 300 s per LLM call. The app's is 60 s; see Latency in the app below.
+
+Success criteria (spec): the average time is below `strict`'s 156 s, clause recall is ≥ 80% and clause precision is ≥ 70%. **All three are met.**
+
+| | `strict` (llm mode) | `hybrid` |
+|---|---|---|
+| Runs | 3 | 3 |
+| Clause recall | 95% | **100%** |
+| Clause precision | 100% | **100%** |
+| False alarms on 20 valid clauses | 0 | **0** |
+| Avg time | 156 s | **78.6 s** (51.2, 132.8, 51.7) |
+| Avg step times | – | Jev 0.9 s · conflict 45.3 s · rewrites 33.2 s |
+
+Per tag (`hybrid`, 3 runs):
+
+| Tag | Precision / recall |
+|---|---|
+| Vague | 100% / 100% |
+| Untestable | 100% / 100% |
+| Vendor-locking | 100% / 100% (it catches #29, which `strict` missed every time) |
+| Conflicting | 82% / 100% |
+| Compound | 100% / 100% |
+
+- **Misses:** none. Both halves of the #6 / #31 audit-log conflict and the #35 / #38 downtime conflict were flagged in every run.
+- **Conflicting's extra flags:**
+  - Clause 5 was flagged in every run. Its 99.9% availability allows scheduled maintenance, which #35 forbids, and the dataset lists it in `also_ok`.
+  - The other extras were one-off pairings of clauses that were already flawed for another reason: #25 with #29 in run 2, and #8 in run 3. None of them landed on a valid clause.
+
+**Thresholds** (`THRESHOLDS` in `src/hybrid.js`): Vague 0.80, Untestable 0.65, Vendor-locking 0.35, Compound 0.75.
+- **Where they come from:** the first run, at 0.5 for every tag, saved Jev's probabilities (`results/2026-09-25T07-18-09-hybrid-deepseek-v4-flash.json`). `npm run eval -- --sweep` on that file found that every tag reaches 100% precision and recall. None needs the spec's fallback to the LLM.
+- **Why the middle of the gap:** each threshold is set halfway between the lowest-scoring flawed clause and the highest-scoring other clause, rounded to 0.05. The sweep's own pick sits right at the edge, just under the lowest flawed clause. The eval scores come out the same, and the middle leaves more margin for unseen clauses.
+
+| Tag | Lowest flawed clause | Highest other clause | Threshold |
+|---|---|---|---|
+| Vague | 0.94 | 0.66 | 0.80 |
+| Untestable | 0.81 | 0.47 | 0.65 |
+| Vendor-locking | 0.55 | 0.20 | 0.35 |
+| Compound | 0.88 | 0.65 | 0.75 |
+
+The confirming 3-run results are in `results/2026-09-25T07-22-41-hybrid-deepseek-v4-flash.json`.
+
+### Latency in the app
+
+Jev is not the bottleneck: 40 clauses take under 1 s. The time goes to the two LLM steps, whose latency on OpenCode Go varies a lot.
+- **Conflict call:** 25–79 s over 40 clauses.
+- **8 clauses, one after the other:** `llm` mode took 19 s and then 46 s; `hybrid` took 8.9 s and then 55 s. The conflict call alone varied from 1.7 s to 17.5 s.
+
+Through the Worker (`npm run dev`):
+- **40-clause paste:** failed after 60 s with "The check took too long". The conflict call went over the app's 60 s per-call LLM timeout. The old llm mode fails the same way on long pastes (52–260 s), so this isn't a regression, but hybrid doesn't fix it either.
+- **8-clause paste:** completed in 50 s, with every flawed clause flagged correctly.
+- **Earlier hang:** one earlier 8-clause request never answered, and the local dev server stopped responding at near-zero CPU. After a restart it didn't happen again, and the cause is unknown.
+
+### Hybrid limitations
+
+- **Tuned and tested on the same 40 clauses.** The margins are wide (≥ 0.28 on every tag), but they may not hold on real drafts.
+- **Thresholds are only valid for `jev-1.13.0`.** Change `JEV_TUNED_MODEL` and `THRESHOLDS` together.
+- **The LLM calls set the latency.** One rewrite call per flagged clause and a conflict call over the whole list both depend on OpenCode Go's response time. Long pastes still hit the 60 s per-call timeout.
+- **Subrequests:** a check of N clauses makes up to 2N + 1 outbound requests, which is over the Workers Free plan's 50 for long pastes (see README).
 
 ## Limitations and failed attempts
 

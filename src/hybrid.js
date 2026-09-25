@@ -18,8 +18,9 @@ export const JEV_QUESTIONS = [
   { tag: "Compound", id: "compound", instructions: question("Compound") },
 ];
 
-// Minimum Jev probability for each tag to be flagged. Set from `npm run eval -- --sweep`; see eval/RESULTS.md.
-export const THRESHOLDS = { Vague: 0.5, Untestable: 0.5, "Vendor-locking": 0.5, Compound: 0.5 };
+// Minimum Jev probability for each tag to be flagged: the middle of the gap between flawed and other
+// clauses in the eval (`npm run eval -- --sweep`), rounded to 0.05. See eval/RESULTS.md.
+export const THRESHOLDS = { Vague: 0.8, Untestable: 0.65, "Vendor-locking": 0.35, Compound: 0.75 };
 
 // The Jev model THRESHOLDS were tuned on. Pinned so jev-latest moving can't shift the calibration; bump both together.
 export const JEV_TUNED_MODEL = "jev-1.13.0";
@@ -65,12 +66,19 @@ export async function checkClausesHybrid(
       tag,
       explanation:
         tag === "Conflicting"
-          ? clashes.map((c) => `Conflicts with clause ${c.other}: ${c.explanation}`).join(" ")
+          ? clashes.map((c) => `Conflicts with clause ${displayName(byId.get(c.other))}: ${c.explanation}`).join(" ")
           : reply?.explanations.get(tag) || `This clause was flagged as ${tag.toLowerCase()}.`,
     }));
     const result = { ...clause, flags, rewrite: flags.length > 0 ? reply?.rewrite ?? null : null };
     return withProbabilities ? { ...result, jev: probabilities[i] } : result;
   });
+}
+
+// How the user numbered the clause ("6." → "6", "REQ-031:" → "REQ-031"); ids are only positions in the paste.
+// Bullets ("-", "*") and unlabelled clauses fall back to the position.
+function displayName(clause) {
+  const label = clause.label.replace(/[.:]+$/, "");
+  return /[A-Za-z0-9]/.test(label) ? label : String(clause.id);
 }
 
 async function jevProbabilities(text, apiKey, options) {

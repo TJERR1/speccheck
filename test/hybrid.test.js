@@ -98,6 +98,16 @@ test("a conflict pair flags both clauses, each naming the other", async () => {
   assert.match(log.rewrite.find((m) => m.startsWith("Clause: keep 24")), /It conflicts with:\n- clause 3: purge 12/);
 });
 
+test("a conflict explanation names the other clause by its label, not its position", async () => {
+  mockServices({ conflicts: [{ a: 1, b: 2, explanation: "24 vs 12 months." }, { a: 1, b: 3, explanation: "x." }] });
+  const results = await checkClausesHybrid(
+    [{ id: 1, label: "6.", text: "keep 24" }, { id: 2, label: "REQ-031:", text: "purge 12" }, { id: 3, label: "-", text: "bulleted" }],
+    KEYS,
+  );
+  assert.equal(results[0].flags[0].explanation, "Conflicts with clause REQ-031: 24 vs 12 months. Conflicts with clause 3: x.");
+  assert.equal(results[1].flags[0].explanation, "Conflicts with clause 6: 24 vs 12 months.");
+});
+
 test("Conflicting comes after Jev tags, in TAGS order", async () => {
   mockServices({ jev: () => ({ Compound: 0.9, Vague: 0.9 }), conflicts: [{ a: 1, b: 2, explanation: "x." }] });
   const [r] = await checkClausesHybrid([clause(1, "a"), clause(2, "b")], KEYS);

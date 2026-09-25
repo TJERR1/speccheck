@@ -1,0 +1,470 @@
+{
+  "mode": "hybrid",
+  "model": "deepseek-v4-flash",
+  "jevModel": "jev-1.13.0",
+  "jevModels": [
+    "jev-latest",
+    "jev-preview"
+  ],
+  "thresholds": {
+    "Vague": 0.5,
+    "Untestable": 0.5,
+    "Vendor-locking": 0.5,
+    "Compound": 0.5
+  },
+  "runs": 1,
+  "summaries": [
+    {
+      "name": "hybrid",
+      "runs": 1,
+      "seconds": 96.412,
+      "precision": 1,
+      "recall": 1,
+      "falseAlarms": 0,
+      "tags": {
+        "Vague": {
+          "precision": 0.6666666666666666,
+          "recall": 1,
+          "fp": 2
+        },
+        "Untestable": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Vendor-locking": {
+          "precision": 1,
+          "recall": 1,
+          "fp": 0
+        },
+        "Conflicting": {
+          "precision": 0.8,
+          "recall": 1,
+          "fp": 1
+        },
+        "Compound": {
+          "precision": 0.6666666666666666,
+          "recall": 1,
+          "fp": 2
+        }
+      },
+      "perRun": [
+        {
+          "seconds": 96.412,
+          "precision": 1,
+          "recall": 1,
+          "errors": []
+        }
+      ],
+      "timings": {
+        "jev": 0.818,
+        "conflict": 40.015,
+        "rewrites": 56.388
+      }
+    }
+  ],
+  "probabilities": [
+    [
+      {
+        "id": 1,
+        "jev": {
+          "Vague": 0.45,
+          "Untestable": 0.3,
+          "Vendor-locking": 0.06,
+          "Compound": 0.41
+        },
+        "conflicting": false
+      },
+      {
+        "id": 2,
+        "jev": {
+          "Vague": 0.94,
+          "Untestable": 0.89,
+          "Vendor-locking": 0.06,
+          "Compound": 0.38
+        },
+        "conflicting": false
+      },
+      {
+        "id": 3,
+        "jev": {
+          "Vague": 0.35,
+          "Untestable": 0.16,
+          "Vendor-locking": 0.1,
+          "Compound": 0.1
+        },
+        "conflicting": false
+      },
+      {
+        "id": 4,
+        "jev": {
+          "Vague": 0.19,
+          "Untestable": 0.13,
+          "Vendor-locking": 0.92,
+          "Compound": 0.14
+        },
+        "conflicting": false
+      },
+      {
+        "id": 5,
+        "jev": {
+          "Vague": 0.31,
+          "Untestable": 0.21,
+          "Vendor-locking": 0.05,
+          "Compound": 0.28
+        },
+        "conflicting": true
+      },
+      {
+        "id": 6,
+        "jev": {
+          "Vague": 0.24,
+          "Untestable": 0.14,
+          "Vendor-locking": 0.05,
+          "Compound": 0.11
+        },
+        "conflicting": true
+      },
+      {
+        "id": 7,
+        "jev": {
+          "Vague": 0.22,
+          "Untestable": 0.17,
+          "Vendor-locking": 0.03,
+          "Compound": 0.25
+        },
+        "conflicting": false
+      },
+      {
+        "id": 8,
+        "jev": {
+          "Vague": 0.91,
+          "Untestable": 0.95,
+          "Vendor-locking": 0.08,
+          "Compound": 0.5
+        },
+        "conflicting": true
+      },
+      {
+        "id": 9,
+        "jev": {
+          "Vague": 0.43,
+          "Untestable": 0.29,
+          "Vendor-locking": 0.07,
+          "Compound": 0.16
+        },
+        "conflicting": false
+      },
+      {
+        "id": 10,
+        "jev": {
+          "Vague": 0.59,
+          "Untestable": 0.47,
+          "Vendor-locking": 0.05,
+          "Compound": 0.91
+        },
+        "conflicting": false
+      },
+      {
+        "id": 11,
+        "jev": {
+          "Vague": 0.3,
+          "Untestable": 0.19,
+          "Vendor-locking": 0.04,
+          "Compound": 0.25
+        },
+        "conflicting": false
+      },
+      {
+        "id": 12,
+        "jev": {
+          "Vague": 0.95,
+          "Untestable": 0.89,
+          "Vendor-locking": 0.05,
+          "Compound": 0.12
+        },
+        "conflicting": false
+      },
+      {
+        "id": 13,
+        "jev": {
+          "Vague": 0.19,
+          "Untestable": 0.13,
+          "Vendor-locking": 0.05,
+          "Compound": 0.11
+        },
+        "conflicting": false
+      },
+      {
+        "id": 14,
+        "jev": {
+          "Vague": 0.32,
+          "Untestable": 0.21,
+          "Vendor-locking": 0.05,
+          "Compound": 0.31
+        },
+        "conflicting": false
+      },
+      {
+        "id": 15,
+        "jev": {
+          "Vague": 0.09,
+          "Untestable": 0.12,
+          "Vendor-locking": 0.93,
+          "Compound": 0.08
+        },
+        "conflicting": false
+      },
+      {
+        "id": 16,
+        "jev": {
+          "Vague": 0.23,
+          "Untestable": 0.11,
+          "Vendor-locking": 0.03,
+          "Compound": 0.07
+        },
+        "conflicting": false
+      },
+      {
+        "id": 17,
+        "jev": {
+          "Vague": 0.12,
+          "Untestable": 0.11,
+          "Vendor-locking": 0.2,
+          "Compound": 0.21
+        },
+        "conflicting": false
+      },
+      {
+        "id": 18,
+        "jev": {
+          "Vague": 0.92,
+          "Untestable": 0.94,
+          "Vendor-locking": 0.11,
+          "Compound": 0.09
+        },
+        "conflicting": false
+      },
+      {
+        "id": 19,
+        "jev": {
+          "Vague": 0.35,
+          "Untestable": 0.16,
+          "Vendor-locking": 0.04,
+          "Compound": 0.08
+        },
+        "conflicting": false
+      },
+      {
+        "id": 20,
+        "jev": {
+          "Vague": 0.28,
+          "Untestable": 0.17,
+          "Vendor-locking": 0.07,
+          "Compound": 0.91
+        },
+        "conflicting": false
+      },
+      {
+        "id": 21,
+        "jev": {
+          "Vague": 0.3,
+          "Untestable": 0.13,
+          "Vendor-locking": 0.04,
+          "Compound": 0.82
+        },
+        "conflicting": false
+      },
+      {
+        "id": 22,
+        "jev": {
+          "Vague": 0.96,
+          "Untestable": 0.9,
+          "Vendor-locking": 0.15,
+          "Compound": 0.33
+        },
+        "conflicting": false
+      },
+      {
+        "id": 23,
+        "jev": {
+          "Vague": 0.28,
+          "Untestable": 0.2,
+          "Vendor-locking": 0.05,
+          "Compound": 0.15
+        },
+        "conflicting": false
+      },
+      {
+        "id": 24,
+        "jev": {
+          "Vague": 0.1,
+          "Untestable": 0.11,
+          "Vendor-locking": 0.06,
+          "Compound": 0.8
+        },
+        "conflicting": false
+      },
+      {
+        "id": 25,
+        "jev": {
+          "Vague": 0.17,
+          "Untestable": 0.24,
+          "Vendor-locking": 0.9,
+          "Compound": 0.07
+        },
+        "conflicting": false
+      },
+      {
+        "id": 26,
+        "jev": {
+          "Vague": 0.68,
+          "Untestable": 0.81,
+          "Vendor-locking": 0.12,
+          "Compound": 0.11
+        },
+        "conflicting": false
+      },
+      {
+        "id": 27,
+        "jev": {
+          "Vague": 0.89,
+          "Untestable": 0.91,
+          "Vendor-locking": 0.05,
+          "Compound": 0.09
+        },
+        "conflicting": false
+      },
+      {
+        "id": 28,
+        "jev": {
+          "Vague": 0.4,
+          "Untestable": 0.27,
+          "Vendor-locking": 0.15,
+          "Compound": 0.82
+        },
+        "conflicting": false
+      },
+      {
+        "id": 29,
+        "jev": {
+          "Vague": 0.26,
+          "Untestable": 0.32,
+          "Vendor-locking": 0.55,
+          "Compound": 0.65
+        },
+        "conflicting": false
+      },
+      {
+        "id": 30,
+        "jev": {
+          "Vague": 0.4,
+          "Untestable": 0.21,
+          "Vendor-locking": 0.05,
+          "Compound": 0.28
+        },
+        "conflicting": false
+      },
+      {
+        "id": 31,
+        "jev": {
+          "Vague": 0.27,
+          "Untestable": 0.21,
+          "Vendor-locking": 0.06,
+          "Compound": 0.07
+        },
+        "conflicting": true
+      },
+      {
+        "id": 32,
+        "jev": {
+          "Vague": 0.27,
+          "Untestable": 0.19,
+          "Vendor-locking": 0.07,
+          "Compound": 0.15
+        },
+        "conflicting": false
+      },
+      {
+        "id": 33,
+        "jev": {
+          "Vague": 0.96,
+          "Untestable": 0.92,
+          "Vendor-locking": 0.05,
+          "Compound": 0.19
+        },
+        "conflicting": false
+      },
+      {
+        "id": 34,
+        "jev": {
+          "Vague": 0.47,
+          "Untestable": 0.43,
+          "Vendor-locking": 0.09,
+          "Compound": 0.34
+        },
+        "conflicting": false
+      },
+      {
+        "id": 35,
+        "jev": {
+          "Vague": 0.48,
+          "Untestable": 0.43,
+          "Vendor-locking": 0.07,
+          "Compound": 0.26
+        },
+        "conflicting": true
+      },
+      {
+        "id": 36,
+        "jev": {
+          "Vague": 0.31,
+          "Untestable": 0.27,
+          "Vendor-locking": 0.05,
+          "Compound": 0.9
+        },
+        "conflicting": false
+      },
+      {
+        "id": 37,
+        "jev": {
+          "Vague": 0.33,
+          "Untestable": 0.16,
+          "Vendor-locking": 0.07,
+          "Compound": 0.1
+        },
+        "conflicting": false
+      },
+      {
+        "id": 38,
+        "jev": {
+          "Vague": 0.2,
+          "Untestable": 0.18,
+          "Vendor-locking": 0.03,
+          "Compound": 0.43
+        },
+        "conflicting": true
+      },
+      {
+        "id": 39,
+        "jev": {
+          "Vague": 0.14,
+          "Untestable": 0.21,
+          "Vendor-locking": 0.08,
+          "Compound": 0.07
+        },
+        "conflicting": false
+      },
+      {
+        "id": 40,
+        "jev": {
+          "Vague": 0.66,
+          "Untestable": 0.46,
+          "Vendor-locking": 0.06,
+          "Compound": 0.88
+        },
+        "conflicting": false
+      }
+    ]
+  ]
+}
